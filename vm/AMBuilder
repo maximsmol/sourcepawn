@@ -105,6 +105,7 @@ shell = configure_like_shell('spshell')
 shell.sources += [
   'shell.cpp'
 ]
+
 SP.spshell = builder.Add(shell)
 
 # Build the verifier.
@@ -113,3 +114,18 @@ verifier.sources += [
   '../tools/verifier/verifier.cpp',
 ]
 builder.Add(verifier)
+
+# Build the emscripten C wrapper.
+if shell.compiler.like('emscripten'):
+  emscripten = configure_like_shell('sourcepawn-js')
+  emscripten.sources += [
+    'emscripten.cpp'
+  ]
+
+  # Add space for registering js-based natives
+  emscripten.compiler.linkflags += [
+    '-s', 'RESERVED_FUNCTION_POINTERS=128',
+    '-s', 'EXTRA_EXPORTED_RUNTIME_METHODS=["FS"]',
+  ];
+
+  builder.Add(emscripten)
