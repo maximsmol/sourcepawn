@@ -69,9 +69,7 @@ class Config(object):
       cfg.postlink += ['-lm']
 
       if cxx.like('emscripten'):
-        emflags = ['-s', 'PRECISE_F32=1']
-        cfg.cflags += emflags
-        cfg.linkflags += emflags
+        cfg.linkflags += ['-s', 'PRECISE_F32=1']
     elif cxx.name is 'msvc':
       if builder.options.debug == '1':
         cfg.cflags += ['/MTd']
@@ -115,9 +113,8 @@ class Config(object):
       if cxx.like('gcc'):
         cfg.cflags += ['-O3']
         if cxx.like('emscripten'):
-          emflags = ['--closure', '0', '--memory-init-file', '0', '-s', 'AGGRESSIVE_VARIABLE_ELIMINATION=1', '--llvm-lto', '1']
-          cfg.cflags += emflags
-          cfg.linkflags += ['-O3'] + emflags
+          cfg.cflags += ['--llvm-lto', '1']
+          cfg.linkflags += ['-O3', '--closure', '0', '--memory-init-file', '0', '-s', 'AGGRESSIVE_VARIABLE_ELIMINATION=1', '--llvm-lto', '1']
       elif cxx.like('msvc'):
         cfg.cflags += ['/Ox']
         cfg.linkflags += ['/OPT:ICF', '/OPT:REF']
@@ -128,9 +125,13 @@ class Config(object):
       if cxx.like('msvc'):
         cfg.cflags += ['/Od', '/RTC1']
       elif cxx.like('emscripten'):
-        emflags = ['-s', 'ASSERTIONS=1', '-s', 'SAFE_HEAP=1', '-s', 'STACK_OVERFLOW_CHECK=1', '-s', 'WARN_UNALIGNED=0', '-s', 'DEMANGLE_SUPPORT=1']
-        cfg.cflags += emflags
-        cfg.linkflags += emflags
+        cfg.linkflags += [
+          '-s', 'ASSERTIONS=1',
+          '-s', 'SAFE_HEAP=1',
+          '-s', 'STACK_OVERFLOW_CHECK=1',
+          '-s', 'WARN_UNALIGNED=0',
+          '-s', 'DEMANGLE_SUPPORT=1',
+        ]
 
     # This needs to be after our optimization flags which could otherwise disable it.
     if cxx.name == 'msvc':
