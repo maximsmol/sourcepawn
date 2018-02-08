@@ -930,17 +930,16 @@ static cell calc(cell left,void (*oper)(),cell right,char *boolresult)
   return 0;
 }
 
+/* caller is responsible for pushheaplist/popheaplist */
 int lvalexpr(svalue *sval)
 {
   memset(sval, 0, sizeof(*sval));
 
   errorset(sEXPRMARK, 0);
-  pushheaplist();
   {
     SC3ExpressionParser parser;
     sval->lvalue = parser.evaluate(&sval->val);
   }
-  popheaplist();
   errorset(sEXPRRELEASE, 0);
 
   return sval->val.ident;

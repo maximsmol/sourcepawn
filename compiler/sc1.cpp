@@ -3688,6 +3688,7 @@ static void dodelete()
   AutoStage staging_on;
 
   svalue sval;
+  pushheaplist();
   int ident = lvalexpr(&sval);
   needtoken(tTERM);
 
@@ -3794,6 +3795,7 @@ static void dodelete()
   }
 
   markexpr(sEXPR, NULL, 0);
+  popheaplist();
 }
 
 /**
