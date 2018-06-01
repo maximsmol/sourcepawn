@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <am-cxx.h>
 #include <amtl/am-autoptr.h>
+#include <amtl/am-enum.h>
 #include <amtl/am-platform.h>
 #include <amtl/am-refcounting.h>
 #if defined(KE_ARCH_X86)

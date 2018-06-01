@@ -26,6 +26,7 @@
 #ifndef _INCLUDE_SOURCEPAWN_COMPILER_TYPES_H_
 #define _INCLUDE_SOURCEPAWN_COMPILER_TYPES_H_
 
+#include <amtl/am-enum.h>
 #include <amtl/am-string.h>
 #include <amtl/am-uniqueptr.h>
 #include <amtl/am-vector.h>
