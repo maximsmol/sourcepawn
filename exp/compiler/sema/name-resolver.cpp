@@ -8,7 +8,7 @@
 // the terms of the GNU General Public License as published by the Free
 // Software Foundation, either version 3 of the License, or (at your option)
 // any later version.
-// 
+//
 // SourcePawn is distributed in the hope that it will be useful, but WITHOUT ANY
 // WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 // FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
@@ -114,7 +114,7 @@ NameResolver::OnLeaveScope()
     // Fix up children.
     for (size_t i = 0; i < env.children().length(); i++)
       env.children()[i]->setParent(scope);
-        
+
     // Add us to our parent scope.
     if (prev)
       prev->addChild(scope);

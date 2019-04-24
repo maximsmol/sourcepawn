@@ -1,18 +1,18 @@
 // vim: set ts=2 sw=2 tw=99 et:
-// 
+//
 // Copyright (C) 2012 David Anderson
-// 
+//
 // This file is part of SourcePawn.
-// 
+//
 // SourcePawn is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free
 // Software Foundation, either version 3 of the License, or (at your option)
 // any later version.
-// 
+//
 // SourcePawn is distributed in the hope that it will be useful, but WITHOUT ANY
 // WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 // FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License along with
 // SourcePawn. If not, see http://www.gnu.org/licenses/.
 #include <string.h>
@@ -731,7 +731,7 @@ ExpressionList*
 Parser::callArgs()
 {
   ExpressionList* arguments = new (pool_) ExpressionList();
-  
+
   if (!match(TOK_RPAREN)) {
     while (true) {
       Expression* expr = expression();
@@ -770,7 +770,7 @@ Expression*
 Parser::index(Expression* left)
 {
   expect(TOK_LBRACKET);
-  
+
   SourceLocation pos = scanner_.begin();
   Expression* expr = expression();
   if (!expr)
@@ -878,7 +878,7 @@ Parser::unary()
     default:
       if (IsNewTypeToken(token)) {
         scanner_.next();
-        
+
         if (peek(TOK_COLON)) {
           cc_.report(scanner_.begin(), rmsg::need_view_as_operator)
             << (cc_.note(scanner_.begin(), rmsg::view_as_example) <<
@@ -1108,7 +1108,7 @@ Parser::ternary()
   Expression* cond = or_();
   if (!cond)
     return nullptr;
-  
+
   if (!match(TOK_QMARK))
     return cond;
 
@@ -1963,7 +1963,7 @@ Parser::arguments(bool* canEarlyResolve)
 {
   ParameterList* params = new (pool_) ParameterList;
 
-  // Note: though our callers 
+  // Note: though our callers
   if (!expect(TOK_LPAREN)) {
     scanner_.skipUntil(TOK_RPAREN, SkipFlags::StopAtLine);
     return nullptr;

@@ -1,18 +1,18 @@
 // vim: set sts=2 ts=8 sw=2 tw=99 et:
-// 
+//
 // Copyright (C) 2012-2014 David Anderson
-// 
+//
 // This file is part of SourcePawn.
-// 
+//
 // SourcePawn is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free
 // Software Foundation, either version 3 of the License, or (at your option)
 // any later version.
-// 
+//
 // SourcePawn is distributed in the hope that it will be useful, but WITHOUT ANY
 // WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 // FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License along with
 // SourcePawn. If not, see http://www.gnu.org/licenses/.
 
@@ -119,7 +119,7 @@ class AstNode : public PoolObject
     : location_(location)
   {
   }
-  
+
   virtual AstKind kind() const = 0;
   virtual const char* kindName() const = 0;
 
@@ -348,7 +348,7 @@ class NameProxy : public Expression
   }
 
   DECLARE_NODE(NameProxy);
-  
+
   Atom* name() const {
     return name_;
   }
@@ -690,7 +690,7 @@ class FieldExpression : public Expression
    : Expression(pos),
      base_(base),
      field_(field)
-  {} 
+  {}
 
   DECLARE_NODE(FieldExpression);
 
@@ -907,7 +907,7 @@ class WhileStatement : public Statement
       sema_cond_(nullptr)
   {
   }
-  
+
   DECLARE_NODE(WhileStatement);
 
   TokenKind token() const {
