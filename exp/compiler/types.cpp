@@ -172,6 +172,17 @@ TypesetType::New(Atom* name)
   return new (POOL()) TypesetType(name);
 }
 
+EnumStructType::EnumStructType(ast::RecordDecl* decl)
+ : RecordType(Kind::EnumStruct, decl)
+{
+}
+
+EnumStructType*
+EnumStructType::New(ast::RecordDecl* decl)
+{
+  return new (POOL()) EnumStructType(decl);
+}
+
 StructType::StructType(ast::RecordDecl* decl)
  : RecordType(Kind::Struct, decl)
 {

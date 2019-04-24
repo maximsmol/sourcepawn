@@ -146,6 +146,12 @@ TypeManager::newTypeset(Atom* name)
   return TypesetType::New(name);
 }
 
+EnumStructType*
+TypeManager::newEnumStruct(ast::RecordDecl* decl)
+{
+  return EnumStructType::New(decl);
+}
+
 StructType*
 TypeManager::newStruct(ast::RecordDecl* decl)
 {

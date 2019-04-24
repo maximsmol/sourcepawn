@@ -1906,6 +1906,9 @@ Parser::statementOrBlock()
 Statement*
 Parser::enum_()
 {
+  if (match(TOK_STRUCT))
+    return enumStruct_();
+
   // enum ::= "enum" name? { enum_members? }
   // enum_members ::= enum_member ","? |
   //          enum_member "," enum_members
@@ -1956,6 +1959,64 @@ Parser::enum_()
 
   requireTerminator();
   return stmt;
+}
+
+Statement*
+Parser::enumStruct_()
+{
+  // enum-struct ::= "enum" "struct" name { enum-struct-entry enum-struct-entry* }
+  // enum-struct-entry ::= enum-struct-field
+  //                     | enum-struct-method
+  // enum-struct-field ::= type-expr name old-dims?
+  // enum-struct-method ::= type-expr name ( method-args ) func-body
+
+  SourceLocation loc = scanner_.begin();
+
+  if (!expect(TOK_NAME))
+    return nullptr;
+  NameToken name = *scanner_.current();
+
+  if (!expect(TOK_LBRACE))
+    return nullptr;
+
+  RecordDecl* decl = new (pool_) RecordDecl(loc, TOK_ENUM, name); // todo: a specialized enum should be used to specify the type of the record
+  delegate_.OnEnterRecordDecl(decl);
+
+  LayoutDecls* decls = new (pool_) LayoutDecls();
+  while (!match(TOK_RBRACE)) {
+    Declaration cur;
+    if (!parse_new_decl(&cur, DeclFlags::Field))
+      break;
+
+    SourceLocation begin = cur.spec.startLoc();
+
+    if (cur.spec.dims() == nullptr && peek(TOK_LPAREN)) {
+      TypeExpr te; // todo: same as in parseMethod
+      MethodDecl* method = delegate_.EnterMethodDecl(begin, cur.name, &cur.spec, &te, false);
+
+      FunctionNode* node = parseFunctionBase(te, TOK_NONE); // todo: using token kinds to pass around info :/
+      if (!node) {
+        delegate_.LeaveMethodDecl(method);
+        break;
+      }
+      method->setMethod(node);
+
+      delegate_.LeaveMethodDecl(method);
+      decls->append(method);
+    }
+    else {
+      FieldDecl* field = delegate_.HandleFieldDecl(begin, cur.name, cur.spec);
+      decls->append(field);
+    }
+
+    requireNewlineOrSemi();
+  }
+  decl->setBody(decls);
+
+  delegate_.OnLeaveRecordDecl(decl);
+
+  requireNewlineOrSemi();
+  return decl;
 }
 
 ParameterList*

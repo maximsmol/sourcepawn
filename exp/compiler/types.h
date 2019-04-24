@@ -95,6 +95,7 @@ typedef FixedPoolList<Type*> TypeList;
   _(Array)                      \
   _(Function)                   \
   _(Typeset)                    \
+  _(EnumStruct)                     \
   _(Struct)                     \
   _(Reference)                  \
   _(Variadic)
@@ -154,6 +155,9 @@ class Type : public PoolObject
 
     // A discriminated union of types.
     Typeset,
+
+    // Mechanism for emulating structs through arrays.
+    EnumStruct,
 
     // A value-typed composite type.
     Struct,
@@ -239,6 +243,7 @@ class Type : public PoolObject
     switch (canonicalKind()) {
       case Kind::Primitive:
       case Kind::Enum:
+      case Kind::EnumStruct:
       case Kind::Unchecked:
       case Kind::Array:
       case Kind::Reference:
@@ -273,7 +278,7 @@ class Type : public PoolObject
   }
 
   bool passesByReference() {
-    return isArray() || isStruct();
+    return isArray() || isEnumStruct() || isStruct();
   }
   bool canBeUsedInConstExpr() {
     return isPrimitive() || isEnum();
@@ -293,7 +298,7 @@ class Type : public PoolObject
 
   // Return true if an address to an r-value of this type can be computed.
   bool isAddressable() {
-    return isReference() || isArray();
+    return isReference() || isArray() || isEnumStruct();
   }
 
   PrimitiveType primitive() {
@@ -672,6 +677,14 @@ class TypesetType : public Type
  private:
   Atom* name_;
   TypeList* types_;
+};
+
+class EnumStructType : public RecordType
+{
+  EnumStructType(ast::RecordDecl* decl);
+
+ public:
+  static EnumStructType* New(ast::RecordDecl* decl);
 };
 
 class StructType : public RecordType

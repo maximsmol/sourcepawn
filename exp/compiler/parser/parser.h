@@ -131,6 +131,7 @@ class Parser
   Statement* delete_();
   Statement* switch_();
   Statement* enum_();
+  Statement* enumStruct_();
   Statement* if_();
   Statement* block();
   BlockStatement* methodBody();

@@ -463,6 +463,10 @@ NameResolver::OnEnterRecordDecl(RecordDecl* decl)
       type = cc_.types()->newStruct(decl);
       break;
 
+    case TOK_ENUM:
+      type = cc_.types()->newEnumStruct(decl);
+      break;
+
     default:
       assert(false);
   }
@@ -472,9 +476,8 @@ NameResolver::OnEnterRecordDecl(RecordDecl* decl)
   assert(!layout_scope_);
   layout_scope_ = LayoutScope::New(pool_);
 
-  // Record types cannot have methods yet, so there is no need to link this
-  // scope into the scope chain.
   decl->setScope(layout_scope_);
+  env_.append(SymbolEnv(layout_scope_));
 }
 
 void
@@ -491,6 +494,7 @@ NameResolver::OnLeaveRecordDecl(RecordDecl* decl)
   }
 
   layout_scope_ = nullptr;
+  OnLeaveScope();
 }
 
 PropertyDecl*
