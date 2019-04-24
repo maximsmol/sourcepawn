@@ -386,7 +386,7 @@ class Type : public PoolObject
 
   // Record type covers multiple types, so we have separate accessors here.
   bool isRecord() {
-    return isStruct();
+    return isStruct() || isEnumStruct();
   }
   RecordType* toRecord() {
     assert(isRecord());
