@@ -59,6 +59,8 @@ SemanticAnalysis::visitExpression(Expression* node)
       return visitSizeof(node->toSizeofExpression());
     case AstKind::kViewAsExpression:
       return visitViewAs(node->toViewAsExpression());
+    case AstKind::kFieldExpression:
+      return visitField(node->toFieldExpression());
     default:
       cc_.report(node->loc(), rmsg::unimpl_kind) <<
         "sema-visit-expr" << node->kindName();
@@ -816,6 +818,79 @@ SemanticAnalysis::visitViewAs(ast::ViewAsExpression* node)
     to,
     sema::CastOp::None,
     ec.result);
+}
+
+sema::Expr*
+SemanticAnalysis::visitField(ast::FieldExpression* node)
+{
+  sema::Expr* base = visitExpression(node->base());
+  if (!base)
+    return nullptr;
+
+  if (base->type()->isStruct()) {
+    assert(0); // fixme: structs are not supported
+    return nullptr;
+  }
+
+  if (!base->type()->isEnumStruct()) {
+    assert(0); // fixme
+    cc_.report(base->src()->loc(), rmsg::cannot_index_type) <<
+      base->type();
+    return nullptr;
+  }
+
+  // todo: same as visitIndex
+
+  // Convert the base to an r-value.
+  LValueToRValueContext base_ec(base);
+  if (!coerce(base_ec))
+    return nullptr;
+  base = base_ec.result;
+
+  EnumStructType* estruct = base->type()->toEnumStruct();
+  LayoutDecls* layout = estruct->decl()->body();
+
+  int32_t fieldN = 0;
+  for (LayoutDecl* ld : *layout) {
+    if (ld->isFieldDecl()) {
+      FieldDecl* fd = ld->toFieldDecl();
+      if (node->field() == fd->name()) {
+        // We let the backend decide the internal structure of a multi-dimensional
+        // array. Semantically, however, if an index operation yields an unsized
+        // array, then the l-value is a pointer to the array reference. If the
+        // operation yields a fixed-size array, then the l-value is the array
+        // reference itself.
+        //
+        // If the backend decides to treat both cases identically (for example,
+        // as smx-v1 does with indirection vectors), then it is responsible for
+        // emitting a load.
+        //
+        // Closer to release, when we can better future-proof array semantics,
+        // we may find that indirection vectors are a necessity and thus always
+        // insert a Load here.
+        //
+        // :TODO: tests.
+
+        BoxedValue b(IntValue::FromValue(fieldN));
+        Type* i32type = types_->getPrimitive(PrimitiveType::Int32);
+        sema::ConstValueExpr* constIndex =
+          new (pool_) sema::ConstValueExpr(node, i32type, b);
+
+        return new (pool_) sema::IndexExpr(node, fd->te().resolved(), base, constIndex);
+      }
+      ++fieldN;
+    }
+
+    if (ld->isMethodDecl()) {
+      MethodDecl* md = ld->toMethodDecl();
+      if (node->field() == md->name()) {
+        assert(0); // fixme
+      }
+    }
+  }
+
+  cc_.report(node->loc(), rmsg::struct_field_not_found) << estruct->name() << node->field();
+  return nullptr;
 }
 
 } // namespace sp
