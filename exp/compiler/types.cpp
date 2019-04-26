@@ -173,7 +173,7 @@ TypesetType::New(Atom* name)
 }
 
 EnumStructType::EnumStructType(ast::RecordDecl* decl)
- : RecordType(Kind::EnumStruct, decl)
+ : RecordType(Kind::EnumStruct, decl), ContiguouslyStoredType(Kind::EnumStruct)
 {
 }
 

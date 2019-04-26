@@ -358,12 +358,12 @@ SmxCompiler::generateVarDecl(ast::VarDecl* stmt)
 
   int32_t size;
 
-  ArrayInfo array_info;
+  ContiguousStorageInfo array_info;
   ArrayType* array_type = sym->type()->isArray()
                           ? sym->type()->toArray()
                           : nullptr;
   if (array_type && array_type->hasFixedLength()) {
-    if (!ComputeArrayInfo(array_type, &array_info)) {
+    if (!ComputeContiguousStorageInfo(array_type, &array_info)) {
       cc_.report(stmt->loc(), rmsg::array_too_big);
       return;
     }
@@ -1188,8 +1188,8 @@ SmxCompiler::generateData(ast::VarDecl* decl)
       return;
     }
 
-    ArrayInfo info;
-    if (!ComputeArrayInfo(array, &info)) {
+    ContiguousStorageInfo info;
+    if (!ComputeContiguousStorageInfo(array, &info)) {
       cc_.report(sym->node()->loc(), rmsg::array_too_big);
       return;
     }
@@ -1588,7 +1588,7 @@ SmxCompiler::emit_var_store(VariableSymbol* sym, ValueDest src)
 }
 
 void
-SmxCompiler::initialize_array(VariableSymbol* sym, sema::Expr* expr, const ArrayInfo& info)
+SmxCompiler::initialize_array(VariableSymbol* sym, sema::Expr* expr, const ContiguousStorageInfo& info)
 {
   // Make sure we have enough space in DAT.
   if (!ke::IsUint64AddSafe(data_.size(), info.bytes) ||
@@ -1616,7 +1616,7 @@ SmxCompiler::initialize_array(VariableSymbol* sym, sema::Expr* expr, const Array
   builder.iv_cursor = base;
   builder.data_cursor = base + info.iv_size;
 
-  gen_array_iv(info.base_type, expr, builder);
+  gen_array_iv(info.base_type->toArray(), expr, builder); // :TODO: "unsafe" cast to array here
 
   // If we generated everything correctly, we should have filled up the IV
   // space as well as the data space.
@@ -1712,7 +1712,7 @@ cell_t
 SmxCompiler::gen_array_data(ArrayType* type, sema::Expr* expr, ArrayBuilder& b)
 {
   int32_t data_addr = b.data_cursor;
-  b.data_cursor += b.info->data_width;
+  b.data_cursor += SizeOfArrayLiteral(type);
 
   // If there's no expr, we're done... we pre-filled everything to 0 already.
   if (!expr)
@@ -1724,7 +1724,7 @@ SmxCompiler::gen_array_data(ArrayType* type, sema::Expr* expr, ArrayBuilder& b)
 
     if (expr) {
       if (sema::StringExpr* lit = expr->toStringExpr()) {
-        ke::SafeStrcpy(ptr, b.info->data_width, lit->literal()->chars());
+        ke::SafeStrcpy(ptr, SizeOfArrayLiteral(type), lit->literal()->chars());
       } else {
         // :TODO: test  = {'a', 'b', 'c', 0} ....
         assert(false);

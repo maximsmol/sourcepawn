@@ -29,7 +29,7 @@
 namespace sp {
 
 class CompileContext;
-struct ArrayInfo;
+struct ContiguousStorageInfo;
 
 class SmxCompiler
 {
@@ -107,11 +107,11 @@ private:
   ValueDest emit_var_load(sema::VarExpr* var, ValueDest dest);
   void emit_var_store(VariableSymbol* sym, ValueDest src);
 
-  void initialize_array(VariableSymbol* sym, sema::Expr* expr, const ArrayInfo& info);
+  void initialize_array(VariableSymbol* sym, sema::Expr* expr, const ContiguousStorageInfo& info);
   void initialize_dynamic_array(ast::VarDecl* decl, sema::Expr* expr);
 
   struct ArrayBuilder {
-    const ArrayInfo* info;
+    const ContiguousStorageInfo* info;
     int32_t base_delta;
     int32_t iv_cursor;
     int32_t data_cursor;

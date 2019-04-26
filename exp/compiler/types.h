@@ -104,6 +104,7 @@ typedef FixedPoolList<Type*> TypeList;
 TYPE_ENUM_MAP(FORWARD_DECLARE)
 #undef FORWARD_DECLARE
 class RecordType;
+class ContiguouslyStoredType;
 
 // A Type object represents a builtin or user-created type. Core types have
 // singleton instances (primitives, void, etc), and extremely common types
@@ -398,6 +399,20 @@ class Type : public PoolObject
     return toRecord();
   }
 
+  // Contiguous memory type covers multiple types, so we have separate accessors here.
+  bool isContiguouslyStored() {
+    return isArray() || isEnumStruct();
+  }
+  ContiguouslyStoredType* toContiguouslyStored() {
+    assert(isContiguouslyStored());
+    return (ContiguouslyStoredType*)this;
+  }
+  ContiguouslyStoredType* asContiguouslyStored() {
+    if (!isContiguouslyStored())
+      return nullptr;
+    return toContiguouslyStored();
+  }
+
  protected:
   bool isWrapped() const {
     return canonical_ != this;
@@ -509,10 +524,24 @@ class EnumType : public Type
   ast::MethodmapDecl* methodmap_;
 };
 
-class ArrayType : public Type
+
+class ContiguouslyStoredType : public Type
+{
+ public:
+  explicit ContiguouslyStoredType(Kind kind)
+   : Type(kind)
+  {}
+
+  bool hasUniformContents() {
+    // enum structs have different types at different indicies
+    return isArray();
+  }
+};
+
+class ArrayType : public ContiguouslyStoredType
 {
   ArrayType(Kind kind)
-   : Type(kind)
+   : ContiguouslyStoredType(kind)
   {
   }
 
@@ -679,7 +708,7 @@ class TypesetType : public Type
   TypeList* types_;
 };
 
-class EnumStructType : public RecordType
+class EnumStructType : public RecordType, ContiguouslyStoredType
 {
   EnumStructType(ast::RecordDecl* decl);
 

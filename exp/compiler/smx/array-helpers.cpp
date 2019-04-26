@@ -27,58 +27,325 @@ namespace sp {
 
 using namespace ke;
 
+struct CCSINode {
+  bool descend;
+  Type* item;
+};
+
+struct IVSizeNode {
+  bool arrayLike;
+  uint64_t size;
+};
+
+// because we don't have the definition of RecordDecl in types.h
+// we cannot extract the field types from it, so we have to do it somewhere where ast.h has already been imported
+// like here
+Type* getUniformSubType(ContiguouslyStoredType* t);
+Type* getNonUniformSubType(ContiguouslyStoredType* t, size_t i);
+int32_t getFixedLength(ContiguouslyStoredType* t);
+
 // :TODO: warn of array dim overflow in type-resolver.
 bool
-ComputeArrayInfo(ArrayType* array, ArrayInfo* out)
+ComputeContiguousStorageInfo(ContiguouslyStoredType* base, ContiguousStorageInfo* out)
 {
-  out->base_type = array;
-  Vector<ArrayType*> work;
+  out->base_type = base;
 
-  Type* iter = array;
-  while (iter->isArray()) {
-    ArrayType* array_type = iter->toArray();
-    if (!array_type->hasFixedLength())
-      break;
-    work.append(array_type);
-    iter = array_type->contained();
+  Vector<uint64_t> bytesStack;
+  Vector<IVSizeNode> iv_sizeStack;
+
+  bytesStack.append(0);
+  iv_sizeStack.append<IVSizeNode>({true, 0});
+
+  Vector<CCSINode> q;
+  q.append<CCSINode>({true, base});
+
+  // unrolled recursive visitor
+  // implemented through depth-first traversal with subgraph completion tombstones (CCSINode)
+  //
+  // for uniform contents (arrays):
+  // q               | bytesStack   | iv_sizeStack
+  // ----------------+--------------+-------------
+  // int[2][3][4]    | 0            | 0
+  // *2, int[3][4]   | 0, 0         | 0, 0
+  // *2, *3, int[4]  | 0, 0, 0      | 0, 0, 0
+  // *2, *3, *4, int | 0, 0, 0, 0   | 0, 0, 0, 0
+  // *2, *3, *4      | 0, 0, 0, 4   | 0, 0, 0, 0, -1
+  // *2, *3          | 0, 0, 16     | 0, 0, 0
+  // *2              | 0, 48        | 0, 3
+  // none            | 96           | 8
+  //
+  //
+  // for single-dimensional uniform content:
+  //
+  // int a[32];
+  //
+  // q         | bytesStack   | iv_sizeStack
+  // ----------+--------------+-------------
+  // int[32]   | 0            | 0
+  // *32, int  | 0, 0         | 0, 0
+  // *32       | 0, 4         | 0, 0, -1
+  // none      | 128          | 0
+  //
+  //
+  // for non-uniform contents (enum structs):
+  //
+  // enum struct A {
+  //   int a; // 4
+  //   int b[2][3]; // 6*4 = 24
+  //   int c[3][4]; // 12*4 = 48
+  //   int d; // 4
+  // } // 80
+  //
+  // q                              | bytesStack   | iv_sizeStack
+  // -------------------------------+--------------+-------------
+  // A                              | 0            | 0
+  // int, int[2][3], int[3][4], int | 0, 0         | 0, -1
+  // int, int[2][3], int[3][4]      | 4            | 0, -1
+  // int, int[2][3], *3, int[4]     | 4, 0         | 0, -1, 0
+  // int, int[2][3], *3, *4, int    | 4, 0, 0      | 0, -1, 0, 0
+  // int, int[2][3], *3, *4         | 4, 0, 4      | 0, -1, 0, 0, -1
+  // int, int[2][3], *3             | 4, 16        | 0, -1, 0
+  // int, int[2][3]                 | 48           | 3
+  // int, *2, int[3]                | 52, 0        | 3, 0
+  // int, *2, *3, int               | 52, 0, 0     | 3, 0, 0
+  // int, *2, *3                    | 52, 0, 4     | 3, 0, 0, -1
+  // int, *2                        | 52, 8        | 3, 0
+  // int                            | 76           | 5
+  // none                           | 80           | 5
+  //
+  //
+  // another example:
+  //
+  // enum struct A {
+  //   int[2][3];
+  //   int[2][3];
+  // }
+  //
+  // enum struct B {
+  //   A a[3];
+  // }
+  // q                              | bytesStack   | iv_sizeStack
+  // -------------------------------+--------------+-------------
+  // B                              | 0            | 0
+  // A[3]                           | 0            | 0, -1
+  // *3, A                          | 0, 0         | 0, -1, 0
+  // *3, int[2][3], int[2][3]       | 0, 0         | 0, -1, 0, -1
+  // *3, int[2][3], *2, int[3]      | 0, 0, 0      | 0, -1, 0, -1, 0
+  // *3, int[2][3], *2, *3, int     | 0, 0, 0, 0   | 0, -1, 0, -1, 0, 0
+  // *3, int[2][3], *2, *3          | 0, 0, 0, 4   | 0, -1, 0, -1, 0, 0, -1
+  // *3, int[2][3], *2              | 0, 0, 12     | 0, -1, 0, -1, 0
+  // *3, int[2][3]                  | 0, 24        | 0, -1, 2
+  // *3, *2, int[3]                 | 0, 24, 0     | 0, -1, 2, 0
+  // *3, *2, *3, int                | 0, 24, 0, 0  | 0, -1, 2, 0, 0
+  // *3, *2, *3                     | 0, 24, 0, 4  | 0, -1, 2, 0, 0, -1
+  // *3, *2                         | 0, 24, 12    | 0, -1, 2, 0
+  // *3                             | 0, 48        | 0, -1, 4
+  // none                           | 144          | 15
+  //
+  //
+  // emulating multiple dimensions with enum structs:
+  //
+  // // int[2][3];
+  // enum struct A {
+  //   int a; // 4
+  //   int b; // 4
+  //   int c; // 4
+  // } // 12
+  // enum struct B {
+  //   A a; // 12
+  //   A b; // 12
+  // } // 24
+  //
+  //
+  // q                              | bytesStack   | iv_sizeStack
+  // -------------------------------+--------------+-------------
+  // B                              | 0            | 0
+  // A, A                           | 0            | 0, -1
+  // A, int, int, int               | 0            | 0, -1
+  // A, int, int                    | 4            | 0, -1
+  // A, int                         | 8            | 0, -1
+  // A                              | 12           | 0, -1
+  // int, int, int                  | 12           | 0, -1
+  // int, int                       | 16           | 0, -1
+  // int                            | 20           | 0, -1
+  // none                           | 24           | 0, -1
+  //
+  while (!q.empty()) {
+    CCSINode n = q.popCopy();
+    Type* item = n.item;
+
+    if (!n.descend) {
+      if (!item->isContiguouslyStored()) {
+        assert(0); // this should never really happen
+        // :TODO: proper error reporting?
+        continue;
+      }
+
+      ContiguouslyStoredType* cst = item->toContiguouslyStored();
+
+
+      uint64_t bytes = bytesStack.popCopy();
+      if (!IsUint64MultiplySafe(bytes, getFixedLength(cst)))
+        return false;
+      bytes *= getFixedLength(cst);
+
+      if (!IsUint64AddSafe(bytesStack.back(), bytes))
+        return false;
+      bytesStack.back() += bytes;
+
+
+      bool innermostArray = false;
+      IVSizeNode child_ivs = iv_sizeStack.popCopy();
+      if (!child_ivs.arrayLike) {
+        innermostArray = true;
+        child_ivs = iv_sizeStack.popCopy();
+        assert(child_ivs.arrayLike); // we collapse nested values
+      }
+
+      if (!iv_sizeStack.back().arrayLike)
+        iv_sizeStack.pop();
+      assert(iv_sizeStack.back().arrayLike); // we collapse nested values
+
+      if (!IsUint64MultiplySafe(child_ivs.size, getFixedLength(cst)))
+        return false;
+      child_ivs.size *= getFixedLength(cst);
+
+      if (!IsUint64AddSafe(iv_sizeStack.back().size, child_ivs.size))
+        return false;
+      iv_sizeStack.back().size += child_ivs.size;
+
+      if (!innermostArray) {
+        uint64_t new_ivs = getFixedLength(cst);
+        if (!IsUint64MultiplySafe(new_ivs, sizeof(cell_t)))
+          return false; // :TODO: is this ever going to happen?
+        new_ivs *= sizeof(cell_t);
+
+        if (!IsUint64AddSafe(iv_sizeStack.back().size, new_ivs))
+          return false;
+        iv_sizeStack.back().size += new_ivs;
+      }
+
+
+      if (bytesStack.back() > INT_MAX) {
+        assert(0);
+        return false;
+      }
+      if (iv_sizeStack.back().size > INT_MAX) {
+        assert(0);
+        return false;
+      }
+
+      continue;
+    }
+
+    if (!item->isContiguouslyStored()) {
+      // the storage size is always cell_t
+      // :TODO: not necessarily true
+      if (!IsUint64AddSafe(bytesStack.back(), sizeof(cell_t)))
+        return false;
+      bytesStack.back() += sizeof(cell_t);
+
+      if (iv_sizeStack.back().arrayLike)
+        iv_sizeStack.append<IVSizeNode>({false, 0});
+
+      continue;
+    }
+
+    ContiguouslyStoredType* cst = item->toContiguouslyStored();
+
+    if (cst->isCharArray()) {
+      uint64_t strCellSize = CellLengthOfString(getFixedLength(cst));
+      if (!IsUint64MultiplySafe(strCellSize, sizeof(cell_t)))
+        return false; // :TODO: is this ever going to happen?
+      strCellSize *= sizeof(cell_t);
+
+      bytesStack.back() += strCellSize;
+
+      // strings also get ivs!
+      // this comment is here to acknowledge what you might wanna do
+      // and to tell you to not do it!
+      // if (iv_sizeStack.back().arrayLike)
+      //   iv_sizeStack.append<IVSizeNode>({false, 0});
+
+      continue;
+    } else if (cst->hasUniformContents()) {
+
+      q.append<CCSINode>({false, cst});
+      q.append<CCSINode>({true, getUniformSubType(cst)});
+
+      bytesStack.append(0);
+      iv_sizeStack.append<IVSizeNode>({true, 0});
+    } else {
+      // non-uniform things don't support slicing or dimensions
+      // so they lack optimizations for those things
+      for (int i = 0; i < getFixedLength(cst); ++i) {
+        Type* t = getNonUniformSubType(cst, i);
+        if (t == nullptr)
+          continue;
+        q.append<CCSINode>({true, t});
+      }
+
+      if (iv_sizeStack.back().arrayLike)
+        iv_sizeStack.append<IVSizeNode>({false, 0});
+    }
   }
 
-  // Compute the final level first.
-  ArrayType* level = work.popCopy();
-  uint64_t bytes = level->isCharArray()
-                   ? CellLengthOfString(level->fixedLength()) * sizeof(cell_t)
-                   : level->fixedLength() * sizeof(cell_t);
-  if (bytes > INT_MAX)
-    return false;
+  // char g[10] = "abcdefghi"; // needs this
+  if (!iv_sizeStack.back().arrayLike) // :TODO: not sure if this is not indicative of a bug
+    iv_sizeStack.pop();
+  assert(iv_sizeStack.back().arrayLike); // we collapse nested values
 
-  out->data_width = int32_t(bytes);
+  out->data_size = bytesStack.popCopy();
+  out->iv_size = iv_sizeStack.popCopy().size;
 
-  // Compute each additional level, walking inwards.
-  uint64_t iv_size = 0;
-  while (!work.empty()) {
-    level = work.popCopy();
+  assert(bytesStack.empty());
+  assert(iv_sizeStack.empty());
 
-    if (!IsUint64MultiplySafe(iv_size, level->fixedLength()))
-      return false;
-    iv_size *= level->fixedLength();
+  assert(out->data_size > 0);
+  assert(out->data_size >= 0); // tombstones should not leak
 
-    uint64_t vector_size = level->fixedLength() * sizeof(cell_t);
-    if (!IsUint64AddSafe(iv_size, vector_size))
-      return false;
-    iv_size += vector_size;
-
-    if (!IsUint64MultiplySafe(bytes, level->fixedLength()))
-      return false;
-    bytes *= uint64_t(level->fixedLength());
-  }
-
-  if (!IsUint64AddSafe(iv_size, bytes) || iv_size + bytes > INT_MAX)
-    return false;
-
-  out->data_size = bytes;
-  out->iv_size = iv_size;
   out->bytes = out->data_size + out->iv_size;
   return true;
+}
+
+Type*
+getUniformSubType(ContiguouslyStoredType* t)
+{
+  if (!t->isArray()) {
+    assert(0); // :TODO: this should never really happen
+    return nullptr;
+  }
+
+  return t->toArray()->contained();
+}
+
+Type*
+getNonUniformSubType(ContiguouslyStoredType* t, size_t i)
+{
+  if (!t->isEnumStruct()) {
+    assert(0); // :TODO: this should never really happen
+    return nullptr;
+  }
+
+  ast::LayoutDecl* ld = t->toEnumStruct()->decl()->body()->at(i);
+  if (ld->isFieldDecl())
+    return ld->toFieldDecl()->te().resolved();
+
+  return nullptr;
+}
+
+int32_t
+getFixedLength(ContiguouslyStoredType* t)
+{
+  if (t->isArray())
+    return t->toArray()->fixedLength();
+
+  if (t->isEnumStruct()) {
+    return t->toEnumStruct()->decl()->body()->length();
+  }
+
+  assert(0); // :TODO: proper error reporting?
+  // the new contiguously stored type isn't supported
 }
 
 } // namespace sp
