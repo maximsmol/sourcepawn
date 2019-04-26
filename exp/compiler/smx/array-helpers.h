@@ -80,23 +80,33 @@ static inline int32_t getFixedLength(ContiguouslyStoredType* t)
   // the new contiguously stored type isn't supported
 }
 
-static inline int32_t SizeOfEnumStructLiteral(EnumStructType* t) {
+static inline int32_t OffsetOfEnumStructField(EnumStructType* t, int n) {
   int32_t res = 0;
 
   ast::LayoutDecls* lds = t->decl()->body();
   int32_t totalDecls = lds->length(); // :TODO: code reuse with getFixedLength?
+  int fieldN = 0;
   for (int i = 0; i < totalDecls; ++i) {
     if (!lds->at(i)->isFieldDecl())
       continue;
+
+    if (fieldN == n)
+      return res;
 
     Type* t = lds->at(i)->toFieldDecl()->te().resolved();
     if (t->isArray())
       res += SizeOfArrayLiteral(t->toArray());
     else
       res += sizeof(cell_t);
+
+    ++fieldN;
   }
 
   return res;
+}
+
+static inline int32_t SizeOfEnumStructLiteral(EnumStructType* t) {
+  return OffsetOfEnumStructField(t, -1); // :TODO: get rid of this pesky -1
 }
 
 // :TODO: do we want to make other CST functions public

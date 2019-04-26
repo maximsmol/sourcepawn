@@ -1424,10 +1424,18 @@ SmxCompiler::emitIndex(sema::IndexExpr* expr, ValueDest dest)
     if (const_index != 0) {
       if (cst->isCharArray())
         __ opcode(OP_ADD_C, const_index);
-      else
+      else if (cst->isEnumStruct())
+        __ opcode(OP_ADD_C, OffsetOfEnumStructField(cst->toEnumStruct(), const_index));
+      else if (cst->isArray())
         __ opcode(OP_ADD_C, const_index * sizeof(cell_t));
+      else
+        assert(false); // indexing for other CSTs is not supported
+        // :TODO: proper error reporting
     }
   } else {
+    assert(!cst->isEnumStruct()); // all enum struct indecies should be const and should have been handled already
+    // :TODO: proper error reporting
+
     if (!emit_into(expr->base(), ValueDest::Alt))
       return ValueDest::Error;
 
@@ -1437,7 +1445,7 @@ SmxCompiler::emitIndex(sema::IndexExpr* expr, ValueDest dest)
     restore(saved_alt);
 
     if (hasFixedLength(cst))
-      __ opcode(OP_BOUNDS, getFixedLength(cst) - 1); // :TODO: getFixedLength is currently broken and wont work here
+      __ opcode(OP_BOUNDS, getFixedLength(cst) - 1);
 
     if (cst->isCharArray())
       __ opcode(OP_ADD);
