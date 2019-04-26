@@ -62,6 +62,7 @@ SemanticAnalysis::coerce(EvalContext& ec)
     return coerce_array(ec);
   if (to->isReference())
     return coerce_ref(ec);
+  // :TODO: handle enum structs
 
   // If we get here, we're coercing to a non-addressable type, so we should
   // force a load of any l-values.
@@ -83,6 +84,7 @@ SemanticAnalysis::coerce(EvalContext& ec)
   return no_conversion(ec);
 }
 
+// :TODO: this function might also need to handle Enum Structs
 bool
 SemanticAnalysis::coerce_array(EvalContext& ec)
 {
@@ -206,6 +208,7 @@ SemanticAnalysis::coerce_array(EvalContext& ec)
   return true;
 }
 
+// :TODO: make sure this never gets called for an EnumStruct
 Type*
 SemanticAnalysis::arrayOrSliceType(EvalContext& ec, sema::IndexExpr** out)
 {
@@ -544,6 +547,7 @@ SemanticAnalysis::lvalue_to_rvalue(sema::LValueExpr* expr)
   // this case, and what the caller probably wants is the array's address.
   Type* type = expr->type();
   if (type->isContiguouslyStored()) { // :TODO: reuse smx/array-helpers::hasFixedLength
+    // hasFixedLength(type->toContiguouslyStored())
     if (type->isArray() && type->toArray()->hasFixedLength())
       return expr;
     if (type->isEnumStruct())

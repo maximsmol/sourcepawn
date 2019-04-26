@@ -70,6 +70,9 @@ static inline int32_t getFixedLength(ContiguouslyStoredType* t)
     return t->toArray()->fixedLength();
 
   if (t->isEnumStruct()) {
+    // :FIXME: this is actually wrong if there are methods because we only want to count fields, and we want to unwrap array members
+    // it was appropriate for iteration only, which is its historic use
+    // should also fix smx-compiler::emitIndex
     return t->toEnumStruct()->decl()->body()->length();
   }
 

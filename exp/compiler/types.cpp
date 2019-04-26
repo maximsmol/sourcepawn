@@ -126,7 +126,7 @@ Type::Compare(Type* left, Type* right)
   if (left->kind_ != right->kind_)
     return false;
 
-  switch (left->kind_) {
+  switch (left->kind_) { // :TODO: handle record types
     case Kind::Primitive:
       return left->primitive() == right->primitive();
 
@@ -512,6 +512,8 @@ sp::DefaultValueForPlainType(Type* type)
   return BoxedValue(IntValue::FromInt32(0));
 }
 
+// :TODO: support enum structs
+// :TODO: unify with sema/expressions::visitSizeof?
 int32_t
 sp::ComputeSizeOfType(ReportingContext& cc, Type* aType, size_t level)
 {
@@ -586,7 +588,7 @@ sp::AreTypesEquivalent(Type* a, Type* b, Qualifiers context)
   if (a == b)
     return true;
 
-  switch (a->canonicalKind()) {
+  switch (a->canonicalKind()) { // :TODO: handle record types
     case Type::Kind::Primitive:
       // Either |b| is not primitive, or they should not have the same
       // primitive type since each type is a singleton.

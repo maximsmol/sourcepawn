@@ -791,6 +791,8 @@ HasValueAssignSemantics(Type* type)
 {
   if (type->isArray())
     return type->toArray()->hasFixedLength();
+  if (type->isEnumStruct())
+    return true; // :TODO: reuse hasFixedLength from smx/array-helpers?
 
   // No objects yet, everything else assigns by-value.
   return true;

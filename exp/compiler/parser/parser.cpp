@@ -903,6 +903,7 @@ Parser::unary()
   return expr;
 }
 
+// :TODO: support sizeof(enum_struct.field)
 Expression*
 Parser::parseSizeof()
 {

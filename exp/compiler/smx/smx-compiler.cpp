@@ -1437,7 +1437,7 @@ SmxCompiler::emitIndex(sema::IndexExpr* expr, ValueDest dest)
     restore(saved_alt);
 
     if (hasFixedLength(cst))
-      __ opcode(OP_BOUNDS, getFixedLength(cst) - 1);
+      __ opcode(OP_BOUNDS, getFixedLength(cst) - 1); // :TODO: getFixedLength is currently broken and wont work here
 
     if (cst->isCharArray())
       __ opcode(OP_ADD);

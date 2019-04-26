@@ -459,6 +459,7 @@ SemanticAnalysis::visitLValue(ast::Expression* node)
   return lv;
 }
 
+// :TODO: support enum struct initialization if it even exists
 sema::Expr*
 SemanticAnalysis::initializer(ast::Expression* node, Type* type)
 {
@@ -756,34 +757,33 @@ SemanticAnalysis::visitSizeof(ast::SizeofExpression* node)
         cc_.report(node->loc(), rmsg::sizeof_invalid_rank);
       return nullptr;
     }
-    type = type->toArray()->contained();
+    type = type->toArray()->contained(); // :TODO: support enum structs
   }
 
   int32_t result = 1;
-  switch (type->canonicalKind()) {
-    case Type::Kind::Array:
-    {
-      ArrayType* array = type->asArray();
-      if (!array) {
-        cc_.report(node->loc(), rmsg::sizeof_indeterminate);
+  if (type->isContiguouslyStored()) {
+    ContiguouslyStoredType* cst = type->asContiguouslyStored();
+    if (cst == nullptr) {
+      cc_.report(node->loc(), rmsg::sizeof_indeterminate);
         return nullptr;
-      }
-      result = array->fixedLength();
-      break;
     }
-    case Type::Kind::Primitive:
-    case Type::Kind::Typeset:
-    case Type::Kind::Function:
-    case Type::Kind::MetaFunction:
-    case Type::Kind::Enum:
-    case Type::Kind::Unchecked:
-    case Type::Kind::NullType:
-      result = 1;
-      break;
-    default:
-      cc_.report(node->loc(), rmsg::sizeof_unsupported_type) <<
-        type;
-      return nullptr;
+    result = cst->toArray()->fixedLength(); // :TODO: support enum structs
+  } else {
+    switch (type->canonicalKind()) {
+      case Type::Kind::Primitive:
+      case Type::Kind::Typeset:
+      case Type::Kind::Function:
+      case Type::Kind::MetaFunction:
+      case Type::Kind::Enum:
+      case Type::Kind::Unchecked:
+      case Type::Kind::NullType:
+        result = 1;
+        break;
+      default:
+        cc_.report(node->loc(), rmsg::sizeof_unsupported_type) <<
+          type;
+        return nullptr;
+    }
   }
 
   IntValue iv = IntValue::FromValue<int32_t>(result);
