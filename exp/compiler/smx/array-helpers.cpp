@@ -42,7 +42,6 @@ struct IVSizeNode {
 // like here
 Type* getUniformSubType(ContiguouslyStoredType* t);
 Type* getNonUniformSubType(ContiguouslyStoredType* t, size_t i);
-int32_t getFixedLength(ContiguouslyStoredType* t);
 
 // :TODO: warn of array dim overflow in type-resolver.
 bool
@@ -332,20 +331,6 @@ getNonUniformSubType(ContiguouslyStoredType* t, size_t i)
     return ld->toFieldDecl()->te().resolved();
 
   return nullptr;
-}
-
-int32_t
-getFixedLength(ContiguouslyStoredType* t)
-{
-  if (t->isArray())
-    return t->toArray()->fixedLength();
-
-  if (t->isEnumStruct()) {
-    return t->toEnumStruct()->decl()->body()->length();
-  }
-
-  assert(0); // :TODO: proper error reporting?
-  // the new contiguously stored type isn't supported
 }
 
 } // namespace sp

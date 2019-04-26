@@ -107,17 +107,17 @@ private:
   ValueDest emit_var_load(sema::VarExpr* var, ValueDest dest);
   void emit_var_store(VariableSymbol* sym, ValueDest src);
 
-  void initialize_array(VariableSymbol* sym, sema::Expr* expr, const ContiguousStorageInfo& info);
+  void initialize_cst(VariableSymbol* sym, sema::Expr* expr, const ContiguousStorageInfo& info);
   void initialize_dynamic_array(ast::VarDecl* decl, sema::Expr* expr);
 
-  struct ArrayBuilder {
+  struct CSTBuilder {
     const ContiguousStorageInfo* info;
     int32_t base_delta;
     int32_t iv_cursor;
     int32_t data_cursor;
   };
-  cell_t gen_array_iv(ArrayType* type, sema::Expr* expr, ArrayBuilder& b);
-  cell_t gen_array_data(ArrayType* type, sema::Expr* expr, ArrayBuilder& b);
+  cell_t gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuilder& b);
+  cell_t gen_array_data(ArrayType* type, sema::Expr* expr, CSTBuilder& b);
 
   // Called when ScopeInfo is destroyed.
   struct ScopeInfo;

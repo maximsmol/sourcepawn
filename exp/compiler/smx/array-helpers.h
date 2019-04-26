@@ -64,6 +64,48 @@ static inline int32_t SizeOfArrayLiteral(ArrayType* t) {
   return t->toArray()->fixedLength() * sizeof(cell_t);
 }
 
+static inline int32_t getFixedLength(ContiguouslyStoredType* t)
+{
+  if (t->isArray())
+    return t->toArray()->fixedLength();
+
+  if (t->isEnumStruct()) {
+    return t->toEnumStruct()->decl()->body()->length();
+  }
+
+  assert(0); // :TODO: proper error reporting?
+  // the new contiguously stored type isn't supported
+}
+
+static inline int32_t SizeOfEnumStructLiteral(EnumStructType* t) {
+  int32_t res = 0;
+
+  ast::LayoutDecls* lds = t->decl()->body();
+  int32_t totalDecls = lds->length(); // :TODO: code reuse with getFixedLength?
+  for (int i = 0; i < totalDecls; ++i) {
+    if (!lds->at(i)->isFieldDecl())
+      continue;
+
+    Type* t = lds->at(i)->toFieldDecl()->te().resolved();
+    if (t->isArray())
+      res += SizeOfArrayLiteral(t->toArray());
+    else
+      res += sizeof(cell_t);
+  }
+
+  return res;
+}
+
+// :TODO: do we want to make other CST functions public
+static inline bool hasFixedLength(ContiguouslyStoredType* t) {
+  if (t->isArray())
+    return t->toArray()->hasFixedLength();
+  if (t->isEnumStruct())
+    return true;
+
+  assert(false); // :TODO: this should never really happen
+}
+
 } // namespace sp
 
 #endif // _include_sourcepawn_emit_contiguous_storage_helpers_h_

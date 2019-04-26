@@ -358,16 +358,16 @@ SmxCompiler::generateVarDecl(ast::VarDecl* stmt)
 
   int32_t size;
 
-  ContiguousStorageInfo array_info;
-  ArrayType* array_type = sym->type()->isArray()
-                          ? sym->type()->toArray()
-                          : nullptr;
-  if (array_type && array_type->hasFixedLength()) {
-    if (!ComputeContiguousStorageInfo(array_type, &array_info)) {
+  ContiguousStorageInfo cst_info;
+  ContiguouslyStoredType* cst_type = sym->type()->isContiguouslyStored()
+                                     ? sym->type()->toContiguouslyStored()
+                                     : nullptr;
+  if (cst_type && hasFixedLength(cst_type)) {
+    if (!ComputeContiguousStorageInfo(cst_type, &cst_info)) {
       cc_.report(stmt->loc(), rmsg::array_too_big);
       return;
     }
-    size = array_info.bytes;
+    size = cst_info.bytes;
   } else {
     size = compute_storage_size(sym->type());
   }
@@ -394,10 +394,10 @@ SmxCompiler::generateVarDecl(ast::VarDecl* stmt)
 
   sema::Expr* init = stmt->sema_init();
 
-  if (sym->type()->isArray()) {
-    ArrayType* at = sym->type()->toArray();
-    if (at->hasFixedLength())
-      initialize_array(sym, init, array_info);
+  if (sym->type()->isContiguouslyStored()) {
+    ContiguouslyStoredType* cst = sym->type()->toContiguouslyStored();
+    if (hasFixedLength(cst))
+      initialize_cst(sym, init, cst_info);
     else
       initialize_dynamic_array(stmt, init);
     return;
@@ -1180,21 +1180,21 @@ SmxCompiler::generateData(ast::VarDecl* decl)
   int32_t address = int32_t(data_.position());
   sym->allocate(StorageClass::Global, address);
 
-  if (sym->type()->isArray()) {
-    ArrayType* array = sym->type()->toArray();
-    if (!array->hasFixedLength()) {
+  if (sym->type()->isContiguouslyStored()) {
+    ContiguouslyStoredType* cst = sym->type()->toContiguouslyStored();
+    if (!hasFixedLength(cst)) {
       // This should never happen.
       assert(false);
       return;
     }
 
     ContiguousStorageInfo info;
-    if (!ComputeContiguousStorageInfo(array, &info)) {
+    if (!ComputeContiguousStorageInfo(cst, &info)) {
       cc_.report(sym->node()->loc(), rmsg::array_too_big);
       return;
     }
 
-    initialize_array(sym, decl->sema_init(), info);
+    initialize_cst(sym, decl->sema_init(), info);
     return;
   }
 
@@ -1414,7 +1414,7 @@ SmxCompiler::emitIncDec(sema::IncDecExpr* expr, ValueDest dest)
 ValueDest
 SmxCompiler::emitIndex(sema::IndexExpr* expr, ValueDest dest)
 {
-  ArrayType* atype = expr->base()->type()->toArray();
+  ContiguouslyStoredType* cst = expr->base()->type()->toContiguouslyStored();
 
   int32_t const_index = -1;
   if (expr->index()->getConstantInt32(&const_index)) {
@@ -1422,7 +1422,7 @@ SmxCompiler::emitIndex(sema::IndexExpr* expr, ValueDest dest)
       return ValueDest::Error;
 
     if (const_index != 0) {
-      if (atype->isCharArray())
+      if (cst->isCharArray())
         __ opcode(OP_ADD_C, const_index);
       else
         __ opcode(OP_ADD_C, const_index * sizeof(cell_t));
@@ -1436,20 +1436,26 @@ SmxCompiler::emitIndex(sema::IndexExpr* expr, ValueDest dest)
       return ValueDest::Error;
     restore(saved_alt);
 
-    if (atype->hasFixedLength())
-      __ opcode(OP_BOUNDS, atype->fixedLength() - 1);
+    if (hasFixedLength(cst))
+      __ opcode(OP_BOUNDS, getFixedLength(cst) - 1);
 
-    if (atype->isCharArray())
+    if (cst->isCharArray())
       __ opcode(OP_ADD);
     else
       __ opcode(OP_IDXADDR);
   }
 
-  // See the comment in SemanticAnalysis::visitIndex. We use indirection
-  // vectors and must force a load.
-  Type* contained = atype->contained();
-  if (contained->isArray() && contained->toArray()->hasFixedLength())
-    __ opcode(OP_LOAD_I);
+  if (cst->isArray()) {
+    // there is no multi-dimensional arrays inside enum structs
+    // :TODO: implement it for fun
+    ArrayType* atype = cst->toArray();
+
+    // See the comment in SemanticAnalysis::visitIndex. We use indirection
+    // vectors and must force a load.
+    Type* contained = atype->contained();
+    if (contained->isArray() && contained->toArray()->hasFixedLength())
+      __ opcode(OP_LOAD_I);
+  }
 
   return ValueDest::Pri;
 }
@@ -1462,8 +1468,8 @@ SmxCompiler::emitVar(sema::VarExpr* expr, ValueDest dest)
 
   // We should never be returning the addresses of dynamic arrays or references
   // yet.
-  if (type->isArray())
-    assert(type->toArray()->hasFixedLength());
+  if (type->isContiguouslyStored())
+    assert(hasFixedLength(type->toContiguouslyStored()));
 
   will_kill(dest);
 
@@ -1510,8 +1516,8 @@ SmxCompiler::emit_var_load(sema::VarExpr* expr, ValueDest dest)
   VariableSymbol* sym = expr->sym();
   Type* type = sym->type();
 
-  if (type->isArray())
-    assert(!type->toArray()->hasFixedLength());
+  if (type->isContiguouslyStored())
+    assert(!hasFixedLength(type->toContiguouslyStored()));
 
   // There is no PUSHREF_S opcode, so we may have to use PRI as a temp.
   if (type->isReference() && dest == ValueDest::Stack)
@@ -1588,7 +1594,7 @@ SmxCompiler::emit_var_store(VariableSymbol* sym, ValueDest src)
 }
 
 void
-SmxCompiler::initialize_array(VariableSymbol* sym, sema::Expr* expr, const ContiguousStorageInfo& info)
+SmxCompiler::initialize_cst(VariableSymbol* sym, sema::Expr* expr, const ContiguousStorageInfo& info)
 {
   // Make sure we have enough space in DAT.
   if (!ke::IsUint64AddSafe(data_.size(), info.bytes) ||
@@ -1610,13 +1616,13 @@ SmxCompiler::initialize_array(VariableSymbol* sym, sema::Expr* expr, const Conti
   // :TODO: static.
   bool is_global = (sym->storage() == StorageClass::Global);
 
-  ArrayBuilder builder;
+  CSTBuilder builder;
   builder.info = &info;
   builder.base_delta = (is_global ? 0 : base);
   builder.iv_cursor = base;
   builder.data_cursor = base + info.iv_size;
 
-  gen_array_iv(info.base_type->toArray(), expr, builder); // :TODO: "unsafe" cast to array here
+  gen_cst_iv(info.base_type->toContiguouslyStored(), expr, builder);
 
   // If we generated everything correctly, we should have filled up the IV
   // space as well as the data space.
@@ -1678,29 +1684,48 @@ SmxCompiler::initialize_array(VariableSymbol* sym, sema::Expr* expr, const Conti
 // how multi-dimensional arrays work in other languages, and it is unclear how
 // to make dynamic arrays and slices work in such a model.
 cell_t
-SmxCompiler::gen_array_iv(ArrayType* type, sema::Expr* expr, ArrayBuilder& b)
+SmxCompiler::gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuilder& b)
 {
-  Type* contained = type->contained();
+  if (type->isEnumStruct()) {
+    if (expr != nullptr) {
+      assert(false);
+      // :TODO: add support for enum struct literals if they are even a thing
+      return b.data_cursor;
+    }
+
+    int32_t data_addr = b.data_cursor;
+    b.data_cursor += SizeOfEnumStructLiteral(type->toEnumStruct());
+    return data_addr;
+  }
+
+  if (!type->isArray()) {
+    assert(false); // :TODO: error reporting
+    return b.data_cursor;
+  }
+
+  ArrayType* array = type->toArray();
+
+  Type* contained = array->contained();
   if (!contained->isArray())
-    return gen_array_data(type, expr, b);
+    return gen_array_data(array, expr, b);
 
   // This case is currently not possible, syntactically, because we will take
   // the dynamic genarray path.
   ArrayType* child = contained->toArray();
   if (!child->hasFixedLength())
-    return gen_array_data(type, expr, b);
+    return gen_array_data(array, expr, b);
 
   // We're an outer dimension in a multi-dimensional array. Reserve space for
   // our indirection vector.
   int32_t iv_addr = b.iv_cursor;
-  b.iv_cursor += type->fixedLength() * sizeof(cell_t);
+  b.iv_cursor += array->fixedLength() * sizeof(cell_t);
 
   sema::ArrayInitExpr* init = expr ? expr->toArrayInitExpr() : nullptr;
-  for (int32_t i = 0; i < type->fixedLength(); i++) {
+  for (int32_t i = 0; i < array->fixedLength(); i++) {
     sema::Expr* child_init = init && size_t(i) < init->exprs()->length()
                              ? init->exprs()->at(i)
                              : nullptr;
-    int32_t next_array = gen_array_iv(child, child_init, b);
+    int32_t next_array = gen_cst_iv(child, child_init, b);
 
     int32_t iv_entry_addr = iv_addr + (i * sizeof(cell_t));
     *data_.ptr<cell_t>(iv_entry_addr) = next_array - b.base_delta;
@@ -1709,7 +1734,7 @@ SmxCompiler::gen_array_iv(ArrayType* type, sema::Expr* expr, ArrayBuilder& b)
 }
 
 cell_t
-SmxCompiler::gen_array_data(ArrayType* type, sema::Expr* expr, ArrayBuilder& b)
+SmxCompiler::gen_array_data(ArrayType* type, sema::Expr* expr, CSTBuilder& b)
 {
   int32_t data_addr = b.data_cursor;
   b.data_cursor += SizeOfArrayLiteral(type);

@@ -543,8 +543,12 @@ SemanticAnalysis::lvalue_to_rvalue(sema::LValueExpr* expr)
   // then the r-value is the storage itself. We cannot compute an r-value in
   // this case, and what the caller probably wants is the array's address.
   Type* type = expr->type();
-  if (type->isArray() && type->toArray()->hasFixedLength())
-    return expr;
+  if (type->isContiguouslyStored()) { // :TODO: reuse smx/array-helpers::hasFixedLength
+    if (type->isArray() && type->toArray()->hasFixedLength())
+      return expr;
+    if (type->isEnumStruct())
+      return expr;
+  }
 
   // Peel away reference types, which can only exist on argument symbols.
   if (type->isReference())
