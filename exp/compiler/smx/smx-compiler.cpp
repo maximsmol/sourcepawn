@@ -1701,6 +1701,8 @@ SmxCompiler::gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuild
       return b.data_cursor;
     }
 
+    // :TODO: this should also init member multidim array ivs, but they aren't supported yet
+
     int32_t data_addr = b.data_cursor;
     b.data_cursor += SizeOfEnumStructLiteral(type->toEnumStruct());
     return data_addr;
@@ -1714,17 +1716,42 @@ SmxCompiler::gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuild
   ArrayType* array = type->toArray();
 
   Type* contained = array->contained();
-  if (!contained->isArray())
+  if (!contained->isContiguouslyStored())
     return gen_array_data(array, expr, b);
+
+  ContiguouslyStoredType* child = contained->toContiguouslyStored();
 
   // This case is currently not possible, syntactically, because we will take
   // the dynamic genarray path.
-  ArrayType* child = contained->toArray();
-  if (!child->hasFixedLength())
+  if (!hasFixedLength(child)) {
+    assert(child->isArray()); // :TODO: make sure this is appropriate
+    // ^ is the only case possible before CST, and there is no syntax for it rn
+    // as indicated in the comment above, so I cant extrapolate the behavior
     return gen_array_data(array, expr, b);
+  }
+
+  if (!child->isArray()) {
+    // this will be modified by the recursive calls so we need to store it
+    // we are not in possesion of any ivs, so we need outer arrays to link to our data directly
+    // :TODO: this might need corrections when enum structs support multidim array members
+    int32_t data_addr = b.data_cursor;
+
+    sema::ArrayInitExpr* init = expr ? expr->toArrayInitExpr() : nullptr;
+    for (int32_t i = 0; i < array->fixedLength(); i++) {
+      sema::Expr* child_init = init && size_t(i) < init->exprs()->length()
+                               ? init->exprs()->at(i)
+                               : nullptr;
+      gen_cst_iv(child, child_init, b);
+    }
+
+    return data_addr;
+  }
 
   // We're an outer dimension in a multi-dimensional array. Reserve space for
   // our indirection vector.
+  assert(child->isArray()); // this invariant is a bit unobvious in the presence of other CSTs, so we ensure it
+                            // remember that ivs are never created between array levels separated by a non-array CST
+
   int32_t iv_addr = b.iv_cursor;
   b.iv_cursor += array->fixedLength() * sizeof(cell_t);
 
