@@ -22,6 +22,8 @@
 #include "coercion.h"
 #include <amtl/am-linkedlist.h>
 
+#include "smx/array-helpers.h"
+
 namespace sp {
 
 using namespace ke;
@@ -767,7 +769,14 @@ SemanticAnalysis::visitSizeof(ast::SizeofExpression* node)
       cc_.report(node->loc(), rmsg::sizeof_indeterminate);
         return nullptr;
     }
-    result = cst->toArray()->fixedLength(); // :TODO: support enum structs
+
+    if (cst->isEnumStruct()) {
+      result = SizeOfEnumStructLiteral(cst->toEnumStruct())/sizeof(cell_t);
+    }
+    else if (cst->isArray())
+      result = cst->toArray()->fixedLength();
+    else
+      assert(false); // :TODO: proper error reporting
   } else {
     switch (type->canonicalKind()) {
       case Type::Kind::Primitive:
