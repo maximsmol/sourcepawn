@@ -104,7 +104,7 @@ class SemanticAnalysis
 
   sema::Expr* initializer(ast::Expression* expr, Type* type);
   sema::Expr* struct_initializer(ast::StructInitializer* expr, Type* type);
-  sema::Expr* array_initializer(ast::ArrayLiteral* expr, Type* type);
+  sema::Expr* cst_initializer(ast::ArrayLiteral* expr, Type* type);
   sema::Expr* infer_array_initializer(VarDecl* node);
 
   bool isValidNewArrayInitializer(Type* from, Type* to);

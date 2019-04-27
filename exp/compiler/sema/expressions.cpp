@@ -461,14 +461,13 @@ SemanticAnalysis::visitLValue(ast::Expression* node)
   return lv;
 }
 
-// :TODO: support enum struct initialization if it even exists
 sema::Expr*
 SemanticAnalysis::initializer(ast::Expression* node, Type* type)
 {
   if (StructInitializer* init = node->asStructInitializer())
     return struct_initializer(init, type);
   if (ArrayLiteral* init = node->asArrayLiteral())
-    return array_initializer(init, type);
+    return cst_initializer(init, type);
 
   sema::Expr* expr = visitExpression(node);
   if (!expr)
@@ -513,39 +512,42 @@ SemanticAnalysis::initializer(ast::Expression* node, Type* type)
   return ec.result;
 }
 
+// :TODO: this function sends errors about "arrays" when they are actually about arrays and enum structs
+// also present in smx-compiler and other places!
 sema::Expr*
-SemanticAnalysis::array_initializer(ast::ArrayLiteral* expr, Type* type)
+SemanticAnalysis::cst_initializer(ast::ArrayLiteral* expr, Type* type)
 {
-  if (!type->isArray()) {
+  if (!type->isContiguouslyStored()) {
     cc_.report(expr->loc(), rmsg::array_literal_with_non_array) <<
       type;
     return nullptr;
   }
 
-  ArrayType* array = type->toArray();
-  if (!array->hasFixedLength()) {
+  ContiguouslyStoredType* cst = type->toContiguouslyStored();
+  if (!hasFixedLength(cst)) {
     cc_.report(expr->loc(), rmsg::array_literal_with_dynamic_array) <<
       type;
     return nullptr;
   }
 
-  if (expr->arrayLength() > array->fixedLength()) {
+  if (expr->arrayLength() > getFixedLength(cst)) {
     cc_.report(expr->loc(), rmsg::array_literal_too_many_exprs) <<
-      expr->arrayLength() << array->fixedLength();
+      expr->arrayLength() << getFixedLength(cst);
     return nullptr;
   }
-
-  // We don't care about qualifiers for array initialization.
-  Type* contained = array->contained()->unqualified();
 
   bool all_const = true;
   FixedPoolList<sema::Expr*>* list = new (pool_) FixedPoolList<sema::Expr*>(expr->arrayLength());
 
   for (size_t i = 0; i < expr->expressions()->length(); i++) {
+    Type* contained = cst->hasUniformContents() ? getUniformSubType(cst) : getNonUniformAddressableSubType(cst, i);
+    // We don't care about qualifiers for initialization.
+    contained = contained->unqualified();
+
     ast::Expression* src = expr->expressions()->at(i);
     sema::Expr* val;
     if (src->isArrayLiteral()) {
-      val = array_initializer(src->toArrayLiteral(), contained);
+      val = cst_initializer(src->toArrayLiteral(), contained);
     } else {
       EvalContext ec(CoercionKind::Assignment, src, contained);
       if (!coerce(ec))

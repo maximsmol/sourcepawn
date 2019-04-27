@@ -1618,7 +1618,7 @@ SmxCompiler::initialize_cst(VariableSymbol* sym, sema::Expr* expr, const Contigu
     return;
   }
 
-  // Fill with zeroes to make gen_array_data simpler.
+  // Fill with zeroes to make gen_cst_data simpler.
   memset(data_.ptr<char>(base), 0, info.bytes);
 
   // :TODO: static.
@@ -1695,16 +1695,10 @@ cell_t
 SmxCompiler::gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuilder& b)
 {
   if (type->isEnumStruct()) {
-    if (expr != nullptr) {
-      assert(false);
-      // :TODO: add support for enum struct literals if they are even a thing
-      return b.data_cursor;
-    }
-
     // :TODO: this should also init member multidim array ivs, but they aren't supported yet
 
     int32_t data_addr = b.data_cursor;
-    b.data_cursor += SizeOfEnumStructLiteral(type->toEnumStruct());
+    gen_cst_data(type, expr, b); // SizeOfEnumStructLiteral(type->toEnumStruct());
     return data_addr;
   }
 
@@ -1717,7 +1711,7 @@ SmxCompiler::gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuild
 
   Type* contained = array->contained();
   if (!contained->isContiguouslyStored())
-    return gen_array_data(array, expr, b);
+    return gen_cst_data(array, expr, b);
 
   ContiguouslyStoredType* child = contained->toContiguouslyStored();
 
@@ -1727,7 +1721,7 @@ SmxCompiler::gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuild
     assert(child->isArray()); // :TODO: make sure this is appropriate
     // ^ is the only case possible before CST, and there is no syntax for it rn
     // as indicated in the comment above, so I cant extrapolate the behavior
-    return gen_array_data(array, expr, b);
+    return gen_cst_data(array, expr, b);
   }
 
   if (!child->isArray()) {
@@ -1769,22 +1763,35 @@ SmxCompiler::gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuild
 }
 
 cell_t
-SmxCompiler::gen_array_data(ArrayType* type, sema::Expr* expr, CSTBuilder& b)
+SmxCompiler::gen_cst_data(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuilder& b)
 {
   int32_t data_addr = b.data_cursor;
-  b.data_cursor += SizeOfArrayLiteral(type);
+
+  int32_t cst_size = 0;
+  if (type->isArray()) {
+    cst_size = SizeOfArrayLiteral(type->toArray());
+  } else if (type->isEnumStruct()) {
+    cst_size = SizeOfEnumStructLiteral(type->toEnumStruct());
+  } else {
+    assert(false); // :TODO: error reporting
+    return data_addr;
+  }
+  int32_t indexableSize = getFixedLength(type);
 
   // If there's no expr, we're done... we pre-filled everything to 0 already.
-  if (!expr)
+  if (!expr) {
+    b.data_cursor += cst_size;
     return data_addr;
+  }
 
-  Type* contained = type->contained();
-  if (contained->isPrimitive(PrimitiveType::Char)) {
+  if (type->isCharArray()) {
+    b.data_cursor += cst_size; // the array will be filled completely
+
     char* ptr = data_.ptr<char>(data_addr);
 
     if (expr) {
       if (sema::StringExpr* lit = expr->toStringExpr()) {
-        ke::SafeStrcpy(ptr, SizeOfArrayLiteral(type), lit->literal()->chars());
+        ke::SafeStrcpy(ptr, cst_size, lit->literal()->chars());
       } else {
         // :TODO: test  = {'a', 'b', 'c', 0} ....
         assert(false);
@@ -1795,26 +1802,33 @@ SmxCompiler::gen_array_data(ArrayType* type, sema::Expr* expr, CSTBuilder& b)
 
   sema::ArrayInitExpr* lit = expr->toArrayInitExpr();
 
-  assert(lit->exprs()->length() <= size_t(type->fixedLength()));
+  assert(lit->exprs()->length() <= size_t(indexableSize));
   cell_t prev2 = 0, prev1 = 0;
   for (size_t i = 0; i < lit->exprs()->length(); i++) {
     sema::Expr* ev = lit->exprs()->at(i);
+
     BoxedValue box;
-    if (!ev->getBoxedValue(&box)) {
-      cc_.report(ev->src()->loc(), rmsg::unimpl_kind) <<
-        "smx-gen-array-data" << ev->prettyName();
+    if (ev->getBoxedValue(&box)) {
+      prev2 = prev1;
+      prev1 = GetCellFromBox(box);
+      *data_.ptr<cell_t>(b.data_cursor) = prev1;
+      b.data_cursor += sizeof(cell_t);
+      continue;
+    } else if (ev->type()->isContiguouslyStored()) {
+      gen_cst_data(ev->type()->toContiguouslyStored(), ev, b);
       continue;
     }
-    prev2 = prev1;
-    prev1 = GetCellFromBox(box);
-    *data_.ptr<cell_t>(data_addr + i * sizeof(cell_t)) = prev1;
+
+    cc_.report(ev->src()->loc(), rmsg::unimpl_kind) <<
+      "smx-gen-array-data" << ev->prettyName();
   }
 
   // 1, 2, 3 ... should yield 1, 2, 3, 4, 5 etc
+  // :TODO: currently only for arrays? doesn't seem to make sense for any other CST
   cell_t step = prev1 - prev2;
-  if (!contained->isPrimitive(PrimitiveType::Int32))
+  if (!type->isArray() || !type->toArray()->contained()->isPrimitive(PrimitiveType::Int32))
     step = 0;
-  for (int32_t i = int32_t(lit->exprs()->length()); i < type->fixedLength(); i++) {
+  for (int32_t i = int32_t(lit->exprs()->length()); i < indexableSize; i++) {
     prev1 += step;
     *data_.ptr<cell_t>(data_addr + i * sizeof(cell_t)) = prev1;
   }

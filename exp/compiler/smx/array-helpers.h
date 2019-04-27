@@ -70,40 +70,25 @@ static inline int32_t getFixedLength(ContiguouslyStoredType* t)
     return t->toArray()->fixedLength();
 
   if (t->isEnumStruct()) {
-    // :FIXME: this is actually wrong if there are methods because we only want to count fields, and we want to unwrap array members
-    // it was appropriate for iteration only, which is its historic use
+    int fieldCount = 0;
+    ast::LayoutDecls* lds = t->toEnumStruct()->decl()->body();
+    for (int i = 0; i < lds->length(); ++i) {
+      ast::LayoutDecl* ld = lds->at(i);
+      if (!ld->isFieldDecl())
+        continue;
+      ++fieldCount;
+    }
+
     // should also fix smx-compiler::emitIndex
-    return t->toEnumStruct()->decl()->body()->length();
+    return fieldCount;
   }
 
   assert(0); // :TODO: proper error reporting?
   // the new contiguously stored type isn't supported
 }
 
-static inline int32_t OffsetOfEnumStructField(EnumStructType* t, int n) {
-  int32_t res = 0;
-
-  ast::LayoutDecls* lds = t->decl()->body();
-  int32_t totalDecls = lds->length(); // :TODO: code reuse with getFixedLength?
-  int fieldN = 0;
-  for (int i = 0; i < totalDecls; ++i) {
-    if (!lds->at(i)->isFieldDecl())
-      continue;
-
-    if (fieldN == n)
-      return res;
-
-    Type* t = lds->at(i)->toFieldDecl()->te().resolved();
-    if (t->isArray())
-      res += SizeOfArrayLiteral(t->toArray());
-    else
-      res += sizeof(cell_t);
-
-    ++fieldN;
-  }
-
-  return res;
-}
+// this one is too complicated to inline arguably
+int32_t OffsetOfEnumStructField(EnumStructType* t, int n);
 
 static inline int32_t SizeOfEnumStructLiteral(EnumStructType* t) {
   return OffsetOfEnumStructField(t, -1); // :TODO: get rid of this pesky -1
@@ -117,6 +102,38 @@ static inline bool hasFixedLength(ContiguouslyStoredType* t) {
     return true;
 
   assert(false); // :TODO: this should never really happen
+}
+
+// because we don't have the definition of RecordDecl in types.h
+// we cannot extract the field types from it, so we have to do it somewhere where ast.h has already been imported
+// like here
+static inline Type* getUniformSubType(ContiguouslyStoredType* t)
+{
+  if (!t->isArray()) {
+    assert(0); // :TODO: this should never really happen
+    return nullptr;
+  }
+
+  return t->toArray()->contained();
+}
+
+static inline Type* getNonUniformAddressableSubType(ContiguouslyStoredType* t, size_t i)
+{
+  if (!t->isEnumStruct()) {
+    assert(0); // :TODO: this should never really happen
+    return nullptr;
+  }
+
+  ast::LayoutDecls* lds = t->toEnumStruct()->decl()->body();
+  for (int j = i; j < lds->length(); ++j) {
+    ast::LayoutDecl* ld = lds->at(i);
+    if (ld->isFieldDecl())
+      return ld->toFieldDecl()->te().resolved();
+  }
+
+  // field index out of range
+  assert(false); // :TODO: proper error reporting
+  return nullptr;
 }
 
 } // namespace sp

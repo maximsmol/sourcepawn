@@ -117,7 +117,7 @@ private:
     int32_t data_cursor;
   };
   cell_t gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuilder& b);
-  cell_t gen_array_data(ArrayType* type, sema::Expr* expr, CSTBuilder& b);
+  cell_t gen_cst_data(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuilder& b);
 
   // Called when ScopeInfo is destroyed.
   struct ScopeInfo;

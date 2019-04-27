@@ -37,12 +37,6 @@ struct IVSizeNode {
   uint64_t size;
 };
 
-// because we don't have the definition of RecordDecl in types.h
-// we cannot extract the field types from it, so we have to do it somewhere where ast.h has already been imported
-// like here
-Type* getUniformSubType(ContiguouslyStoredType* t);
-Type* getNonUniformSubType(ContiguouslyStoredType* t, size_t i);
-
 // :TODO: warn of array dim overflow in type-resolver.
 bool
 ComputeContiguousStorageInfo(ContiguouslyStoredType* base, ContiguousStorageInfo* out)
@@ -278,7 +272,7 @@ ComputeContiguousStorageInfo(ContiguouslyStoredType* base, ContiguousStorageInfo
       // non-uniform things don't support slicing or dimensions
       // so they lack optimizations for those things
       for (int i = 0; i < getFixedLength(cst); ++i) {
-        Type* t = getNonUniformSubType(cst, i);
+        Type* t = getNonUniformAddressableSubType(cst, i);
         if (t == nullptr)
           continue;
         q.append<CCSINode>({true, t});
@@ -307,30 +301,31 @@ ComputeContiguousStorageInfo(ContiguouslyStoredType* base, ContiguousStorageInfo
   return true;
 }
 
-Type*
-getUniformSubType(ContiguouslyStoredType* t)
+int32_t
+OffsetOfEnumStructField(EnumStructType* t, int n)
 {
-  if (!t->isArray()) {
-    assert(0); // :TODO: this should never really happen
-    return nullptr;
+  int32_t res = 0;
+
+  ast::LayoutDecls* lds = t->decl()->body();
+  int32_t totalDecls = lds->length(); // :TODO: code reuse with getFixedLength?
+  int fieldN = 0;
+  for (int i = 0; i < totalDecls; ++i) {
+    if (!lds->at(i)->isFieldDecl())
+      continue;
+
+    if (fieldN == n)
+      return res;
+
+    Type* t = lds->at(i)->toFieldDecl()->te().resolved();
+    if (t->isArray())
+      res += SizeOfArrayLiteral(t->toArray());
+    else
+      res += sizeof(cell_t);
+
+    ++fieldN;
   }
 
-  return t->toArray()->contained();
-}
-
-Type*
-getNonUniformSubType(ContiguouslyStoredType* t, size_t i)
-{
-  if (!t->isEnumStruct()) {
-    assert(0); // :TODO: this should never really happen
-    return nullptr;
-  }
-
-  ast::LayoutDecl* ld = t->toEnumStruct()->decl()->body()->at(i);
-  if (ld->isFieldDecl())
-    return ld->toFieldDecl()->te().resolved();
-
-  return nullptr;
+  return res;
 }
 
 } // namespace sp
