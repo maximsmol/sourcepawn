@@ -533,8 +533,14 @@ class ContiguouslyStoredType : public Type
   {}
 
   bool hasUniformContents() {
-    // enum structs have different types at different indicies
-    return isArray();
+    if (isArray())
+      return true;
+    else if (isEnumStruct())
+      // enum structs have different types at different indicies
+      return false;
+
+    assert(false); // :TODO: error reporting
+    return false;
   }
 };
 

@@ -516,6 +516,7 @@ TypeResolver::visitTypedefDecl(TypedefDecl* node)
   // This is our recursion guard.
   Type* actual = resolveType(node->te());
 
+  // :TODO: support all CSTs
   // Check for a recursive type. There might be a better way to do this, but
   // for now this is what we've got: just manually check any compound type
   // that wouldn't be able to handle a self-reference.

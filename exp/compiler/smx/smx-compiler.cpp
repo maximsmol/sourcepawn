@@ -1718,12 +1718,13 @@ SmxCompiler::gen_cst_iv(ContiguouslyStoredType* type, sema::Expr* expr, CSTBuild
   // This case is currently not possible, syntactically, because we will take
   // the dynamic genarray path.
   if (!hasFixedLength(child)) {
-    assert(child->isArray()); // :TODO: make sure this is appropriate
+    assert(child->isArray()); // :TODO: it is not clear if this is even a concern for other CSTs
     // ^ is the only case possible before CST, and there is no syntax for it rn
     // as indicated in the comment above, so I cant extrapolate the behavior
     return gen_cst_data(array, expr, b);
   }
 
+  // ivs are never created between array levels separated by a non-array CST
   if (!child->isArray()) {
     // this will be modified by the recursive calls so we need to store it
     // we are not in possesion of any ivs, so we need outer arrays to link to our data directly

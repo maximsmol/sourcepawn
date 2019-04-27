@@ -253,6 +253,8 @@ SemanticAnalysis::visitIndex(ast::IndexExpression* node)
   if (!base)
     return nullptr;
 
+  // ONLY arrays can be directly indexed with numbers
+  // enum structs use fields
   if (!base->type()->isArray()) {
     cc_.report(base->src()->loc(), rmsg::cannot_index_type) <<
       base->type();
@@ -461,6 +463,7 @@ SemanticAnalysis::visitLValue(ast::Expression* node)
   return lv;
 }
 
+// :TODO: this should be generalized for CSTs but it's unobvious how
 sema::Expr*
 SemanticAnalysis::initializer(ast::Expression* node, Type* type)
 {
@@ -776,6 +779,7 @@ SemanticAnalysis::visitSizeof(ast::SizeofExpression* node)
       result = SizeOfEnumStructLiteral(cst->toEnumStruct())/sizeof(cell_t);
     }
     else if (cst->isArray())
+      // this means that sizeof does NOT use cell_t as units for strings
       result = cst->toArray()->fixedLength();
     else
       assert(false); // :TODO: proper error reporting

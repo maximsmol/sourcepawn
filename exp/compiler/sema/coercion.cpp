@@ -257,7 +257,7 @@ SemanticAnalysis::coerce_ref(EvalContext& ec)
   if (from->isReference())
     from = from->toReference()->inner();
 
-  assert(!to->inner()->isArray());
+  assert(!to->inner()->isArray()); // :TODO: how do enum structs fit in?
 
   // We will probably have to relax this for retagging.
   bool equal = CompareNonArrayTypesExactly(
@@ -306,6 +306,8 @@ SemanticAnalysis::coerce_arg(ast::Expression* ast_expr, Type* to)
     // not an issue (for example, the type is an r-value or an array), then we
     // can use the normal coercion logic. If there is an l-value we should
     // preserve, we have special logic for that.
+    // :TODO: enum structs + my intuition is that this should use some generic
+    // type property instead
     if (expr->isLValueExpr() && !to->isArray())
       return coerce_vararg(expr->asLValueExpr(), to);
   }

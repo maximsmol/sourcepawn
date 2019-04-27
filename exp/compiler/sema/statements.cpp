@@ -256,6 +256,7 @@ SemanticAnalysis::visitVarDecl(VarDecl* node)
 
   if (!node->must_zero_init()) {
     // :TODO: forbid static/global
+    // :TODO: how do enum structs work with this?
     if (!sym->type()->isArray()) {
       cc_.report(node->loc(), rmsg::decl_needs_array_type);
       return;
