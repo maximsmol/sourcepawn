@@ -8,7 +8,7 @@
 // the terms of the GNU General Public License as published by the Free
 // Software Foundation, either version 3 of the License, or (at your option)
 // any later version.
-// 
+//
 // SourcePawn is distributed in the hope that it will be useful, but WITHOUT ANY
 // WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 // FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
@@ -45,7 +45,7 @@ class AutoPush
 //
 // This pass involves a recursive walk through the AST. Unlike other passes,
 // it may recursively resolve other unrelated AST nodes. For example,
-// 
+//
 //   typedef A = B;
 //   typedef B = int;
 //
@@ -179,7 +179,7 @@ TypeResolver::resolveValueOfConstant(ConstantSymbol* sym)
 {
   if (!sym->hasValue())
     resolveConstant(sym);
-  
+
   return sym->value();
 }
 
@@ -515,7 +515,7 @@ TypeResolver::visitTypedefDecl(TypedefDecl* node)
 
   // This is our recursion guard.
   Type* actual = resolveType(node->te());
-  
+
   // Check for a recursive type. There might be a better way to do this, but
   // for now this is what we've got: just manually check any compound type
   // that wouldn't be able to handle a self-reference.
@@ -769,7 +769,7 @@ TypeResolver::fixedArrayLiteralDimensions(TypeSpecifier* spec, Type* base, Expre
   // Return the computed list unadultered - resolveArrayComponentTypes()
   // will correctly merge with the TypeSpecifier.
   return ranks;
-} 
+}
 
 void
 TypeResolver::resolveTypesInSignature(FunctionSignature* sig)
@@ -964,7 +964,7 @@ TypeResolver::resolveNameToType(NameProxy* proxy)
     //
     // As of a 11/27/2014 refactoring, all AST nodes that can define types,
     // including typedefs, fill in an empty Type object to prevent recursion.
-    // Each data structure may have its own special cases for the types of 
+    // Each data structure may have its own special cases for the types of
     // recursion it can/cannot support.
     sym->node()->accept(this);
 
