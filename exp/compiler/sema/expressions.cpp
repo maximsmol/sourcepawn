@@ -843,12 +843,12 @@ SemanticAnalysis::visitField(ast::FieldExpression* node)
     return nullptr;
 
   if (base->type()->isStruct()) {
-    assert(0); // fixme: structs are not supported
+    assert(0); // :TODO: structs are not supported
     return nullptr;
   }
 
   if (!base->type()->isEnumStruct()) {
-    assert(0); // fixme
+    assert(0); // :TODO: proper error reporting
     cc_.report(base->src()->loc(), rmsg::cannot_index_type) <<
       base->type();
     return nullptr;
@@ -899,7 +899,7 @@ SemanticAnalysis::visitField(ast::FieldExpression* node)
     if (ld->isMethodDecl()) {
       MethodDecl* md = ld->toMethodDecl();
       if (node->field() == md->name()) {
-        assert(0); // fixme
+        assert(0); // :TODO: support enum struct methods
       }
     }
   }
