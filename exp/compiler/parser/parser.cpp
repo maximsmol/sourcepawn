@@ -1980,7 +1980,7 @@ Parser::enumStruct_()
   if (!expect(TOK_LBRACE))
     return nullptr;
 
-  RecordDecl* decl = new (pool_) RecordDecl(loc, TOK_ENUM, name); // todo: a specialized enum should be used to specify the type of the record
+  RecordDecl* decl = new (pool_) RecordDecl(loc, TOK_ENUM, name); // :TODO: a specialized enum should be used to specify the type of the record
   delegate_.OnEnterRecordDecl(decl);
 
   LayoutDecls* decls = new (pool_) LayoutDecls();
@@ -1992,10 +1992,10 @@ Parser::enumStruct_()
     SourceLocation begin = cur.spec.startLoc();
 
     if (cur.spec.dims() == nullptr && peek(TOK_LPAREN)) {
-      TypeExpr te; // todo: same as in parseMethod
+      TypeExpr te; // :TODO: same as in parseMethod
       MethodDecl* method = delegate_.EnterMethodDecl(begin, cur.name, &cur.spec, &te, false);
 
-      FunctionNode* node = parseFunctionBase(te, TOK_NONE); // todo: using token kinds to pass around info :/
+      FunctionNode* node = parseFunctionBase(te, TOK_NONE); // :TODO: using token kinds to pass around info :/
       if (!node) {
         delegate_.LeaveMethodDecl(method);
         break;

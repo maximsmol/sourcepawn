@@ -854,7 +854,7 @@ SemanticAnalysis::visitField(ast::FieldExpression* node)
     return nullptr;
   }
 
-  // todo: same as visitIndex
+  // :TODO: same as visitIndex
 
   // Convert the base to an r-value.
   LValueToRValueContext base_ec(base);
