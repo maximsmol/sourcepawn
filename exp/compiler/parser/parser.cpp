@@ -251,6 +251,12 @@ Parser::parse_new_type_expr(TypeSpecifier* spec, uint32_t flags)
 
   // If we didn't already fill out array dimensions, do so now.
   if (!spec->isArray() && match(TOK_LBRACKET)) {
+    if (flags & DeclFlags::NoDynamicArr) {
+      cc_.report(scanner_.begin(), rmsg::expected_fixed_array);
+    }
+
+    SourceLocation loc = scanner_.begin();
+
     SourceLocation begin = scanner_.begin();
     uint32_t rank = 0;
     do {
@@ -258,7 +264,12 @@ Parser::parse_new_type_expr(TypeSpecifier* spec, uint32_t flags)
       if (!match(TOK_RBRACKET))
         cc_.report(scanner_.begin(), rmsg::fixed_array_in_prefix);
     } while (match(TOK_LBRACKET));
-    spec->setRank(begin, rank);
+
+    if (rank > 1 && flags & DeclFlags::NoMultidimArr) {
+      cc_.report(loc, rmsg::expected_singledim_array);
+    } else {
+      spec->setRank(begin, rank);
+    }
   }
 
   if (flags & DeclFlags::Argument) {
@@ -336,10 +347,19 @@ Parser::parse_old_array_dims(Declaration* decl, uint32_t flags)
       break;
   } while (match(TOK_LBRACKET));
 
+  bool dontSetDims = false;
+  if (rank > 1 && flags & DeclFlags::NoMultidimArr) {
+    cc_.report(loc, rmsg::expected_singledim_array);
+    dontSetDims = true;;
+  }
+
   if (spec->isArray()) {
     cc_.report(loc, rmsg::double_array_dims);
-    return;
+    dontSetDims = true;
   }
+
+  if (dontSetDims)
+    return;
 
   if (dims)
     spec->setDimensionSizes(loc, dims);
@@ -1932,16 +1952,8 @@ Parser::enum_()
     if (scanner_.peek() == TOK_RBRACE)
       break;
 
-    if (match(TOK_LABEL))
-      cc_.report(scanner_.begin(), rmsg::no_enum_structs);
-
     Atom* name = expectName();
     SourceLocation loc = scanner_.begin();
-
-    if (peek(TOK_LBRACKET)) {
-      if (dimensions())
-        cc_.report(scanner_.begin(), rmsg::no_enum_structs);
-    }
 
     Expression* expr = nullptr;
     if (match(TOK_ASSIGN)) {
@@ -1986,7 +1998,8 @@ Parser::enumStruct_()
   LayoutDecls* decls = new (pool_) LayoutDecls();
   while (!match(TOK_RBRACE)) {
     Declaration cur;
-    if (!parse_new_decl(&cur, DeclFlags::Field))
+    // :TODO: allow multidimensional arrays in enum structs?
+    if (!parse_new_decl(&cur, DeclFlags::Field | DeclFlags::NoDynamicArr | DeclFlags::NoMultidimArr)) // :TODO: allow dynamic arrays as the last element?
       break;
 
     SourceLocation begin = cur.spec.startLoc();

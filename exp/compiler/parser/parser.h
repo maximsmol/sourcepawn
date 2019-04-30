@@ -40,6 +40,8 @@ namespace DeclFlags
   static const uint32_t Field         = 0x10;
   static const uint32_t Inline        = 0x20; // Don't require a newline/semicolon.
   static const uint32_t MaybeNamed    = 0x40; // Name is optional.
+  static const uint32_t NoDynamicArr  = 0x80;
+  static const uint32_t NoMultidimArr = 0x100;
 
   static const uint32_t NamedMask = MaybeFunction | Argument | Variable | Field | MaybeNamed;
 };
