@@ -117,6 +117,9 @@ static inline Type* getUniformSubType(ContiguouslyStoredType* t)
   return t->toArray()->contained();
 }
 
+// have to keep this non-inlinable to avoid recursive dependencies in types.h
+Type* getEnumStructField(EnumStructType* t, Atom* field);
+
 static inline Type* getNonUniformAddressableSubType(ContiguouslyStoredType* t, size_t i)
 {
   if (!t->isEnumStruct()) {

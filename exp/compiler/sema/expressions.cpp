@@ -749,23 +749,7 @@ SemanticAnalysis::visitTernary(ast::TernaryExpression* node)
 sema::Expr*
 SemanticAnalysis::visitSizeof(ast::SizeofExpression* node)
 {
-  VariableSymbol* sym = node->proxy()->sym()->asVariable();
-  if (!sym) {
-    cc_.report(node->loc(), rmsg::sizeof_needs_variable);
-    return nullptr;
-  }
-
-  Type* type = UnwrapReference(sym->type());
-  for (size_t i = 1; i <= node->level(); i++) {
-    if (!type->isArray()) {
-      if (i == 1)
-        cc_.report(node->loc(), rmsg::sizeof_needs_array);
-      else
-        cc_.report(node->loc(), rmsg::sizeof_invalid_rank);
-      return nullptr;
-    }
-    type = type->toArray()->contained(); // :TODO: support enum structs
-  }
+  Type* type = ResolveSizeofLeafType(cc_, node);
 
   int32_t result = 1;
   if (type->isContiguouslyStored()) {

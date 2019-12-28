@@ -923,7 +923,38 @@ Parser::unary()
   return expr;
 }
 
-// :TODO: support sizeof(enum_struct.field)
+AbstractAccessorExpression*
+Parser::parseAbstractAccessor()
+{
+  SourceLocation loc = scanner_.begin();
+
+  if (match(TOK_LBRACKET)) {
+    size_t level = 0;
+    do {
+      if (!expect(TOK_RBRACKET))
+        return nullptr;
+      level++;
+    } while (match(TOK_LBRACKET));
+
+    AbstractArrayMemberExpression* res = new (pool_) AbstractArrayMemberExpression(loc, level);
+    res->setChild(parseAbstractAccessor());
+    return res;
+  }
+
+  // :TODO: sizeof(variable::field) is allowed just lie sizeof(variable.field)
+  if (match(TOK_DBL_COLON) || match(TOK_DOT)) {
+    if (!expectName())
+      return nullptr;
+    NameToken field = *scanner_.current();
+
+    AbstractFieldExpression* res = new (pool_) AbstractFieldExpression(loc, field);
+    res->setChild(parseAbstractAccessor());
+    return res;
+  }
+
+  return nullptr;
+}
+
 Expression*
 Parser::parseSizeof()
 {
@@ -937,19 +968,15 @@ Parser::parseSizeof()
     return nullptr;
   NameProxy* proxy = nameref();
 
-  size_t level = 0;
-  while (match(TOK_LBRACKET)) {
-    if (!expect(TOK_RBRACKET))
-      return nullptr;
-    level++;
-  }
+  // :TODO: sizeof a is currently valid and idk if that's intended
+  AbstractAccessorExpression* expr = parseAbstractAccessor();
 
   for (size_t i = 0; i < nparens; i++) {
     if (!expect(TOK_RPAREN))
       return nullptr;
   }
 
-  return new (pool_) SizeofExpression(loc, proxy, level);
+  return new (pool_) SizeofExpression(loc, proxy, expr);
 }
 
 Expression*

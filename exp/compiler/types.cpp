@@ -512,31 +512,76 @@ sp::DefaultValueForPlainType(Type* type)
   return BoxedValue(IntValue::FromInt32(0));
 }
 
-// :TODO: support enum structs
-// :TODO: unify with sema/expressions::visitSizeof?
+Type*
+sp::ResolveSizeofLeafType(CompileContext& cc, ast::SizeofExpression* node) {
+  Symbol* sym = node->proxy()->sym();
+  Type* type = nullptr;
+  if (sym->isType()) {
+    TypeSymbol* ts = sym->asType();
+    type = ts->type();
+  }
+  else if (sym->isVariable()) {
+    VariableSymbol* vs = sym->asVariable();
+    type = UnwrapReference(vs->type());
+  }
+  else {
+    // :TODO: this is not quite the right diagnostic
+    cc.report(node->loc(), rmsg::sizeof_needs_variable);
+    return nullptr;
+  }
+
+  AbstractAccessorExpression* curAccessor = node->accessorExpression();
+  while (curAccessor != nullptr) {
+    if (curAccessor->isAbstractArrayMemberExpression()) {
+      for (size_t i = 1; i <= curAccessor->asAbstractArrayMemberExpression()->level(); i++) {
+        if (!type->isArray()) {
+          if (i == 1)
+            cc.report(curAccessor->loc(), rmsg::sizeof_needs_array);
+          else
+            cc.report(curAccessor->loc(), rmsg::sizeof_invalid_rank);
+          return nullptr;
+        }
+        type = type->toArray()->contained();
+      }
+    }
+    else if (curAccessor->isAbstractFieldExpression()) {
+      Atom* field = curAccessor->asAbstractFieldExpression()->field();
+
+      // :TODO: error reporting if type is not an enum struct
+
+      type = getEnumStructField(type->asEnumStruct(), field);
+
+      if (type == nullptr) {
+        cc.report(curAccessor->loc(), rmsg::struct_field_not_found) << type->asEnumStruct()->name() << field;
+        return nullptr;
+      }
+    }
+
+    curAccessor = curAccessor->child();
+  }
+
+  return type;
+}
+
 int32_t
-sp::ComputeSizeOfType(ReportingContext& cc, Type* aType, size_t level)
+sp::ComputeSizeOfType(CompileContext& cc, ast::SizeofExpression* so)
 {
+  Type* aType = ResolveSizeofLeafType(cc, so);
+
+  // :TODO: error location is inaccurate
+
   if (aType->isUnresolvedTypedef()) {
-    cc.report(rmsg::recursive_type);
+    cc.report(so->loc(), rmsg::recursive_type);
     return 0;
   }
   if (!aType->isArray()) {
-    cc.report(rmsg::sizeof_needs_array);
+    cc.report(so->loc(), rmsg::sizeof_invalid_rank);
     return 0;
   }
 
   ArrayType* type = aType->toArray();
-  for (size_t i = 1; i <= level; i++) {
-    if (!type->contained()->isArray()) {
-      cc.report(rmsg::sizeof_invalid_rank);
-      return 0;
-    }
-    type = type->contained()->toArray();
-  }
-
   if (!type->hasFixedLength()) {
-    cc.report(rmsg::sizeof_indeterminate);
+    cc.report(so->loc(), rmsg::sizeof_indeterminate);
     return 0;
   }
 

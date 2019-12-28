@@ -260,17 +260,7 @@ ConstantEvaluator::Evaluate(Expression* expr, BoxedValue* out)
     return NotConstant;
   }
   if (SizeofExpression* so = expr->asSizeofExpression()) {
-    ReportingContext cc(cc_, so->loc(), mode_ == Required);
-
-    // Resolve to a variable - not a var or type like C++.
-    VariableSymbol* sym = so->proxy()->sym()->asVariable();
-    if (!sym) {
-      cc.report(rmsg::sizeof_needs_variable);
-      return TypeError;
-    }
-
-    Type* type = resolver_->resolveTypeOfVar(sym);
-    int32_t value = ComputeSizeOfType(cc, type, so->level());
+    int32_t value = ComputeSizeOfType(cc_, so);
     if (!value)
       return TypeError;
 

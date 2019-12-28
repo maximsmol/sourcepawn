@@ -72,6 +72,8 @@ class CompileContext;
   _(IncDecExpression)     \
   _(UnaryExpression)      \
   _(ViewAsExpression)       \
+  _(AbstractArrayMemberExpression) \
+  _(AbstractFieldExpression) \
   _(SizeofExpression)     \
   _(TernaryExpression)    \
   _(TokenLiteral)         \
@@ -529,13 +531,67 @@ class ArrayLiteral : public Expression
   bool repeatLastElement_;
 };
 
+class AbstractAccessorExpression : public Expression {
+ public:
+  AbstractAccessorExpression(const SourceLocation& pos)
+   : Expression(pos),
+     child_(nullptr)
+  {}
+
+  AbstractAccessorExpression* child() const {
+    return child_;
+  }
+
+  void setChild(AbstractAccessorExpression* child) {
+    child_ = child;
+  }
+
+ private:
+  NameProxy* proxy_;
+  AbstractAccessorExpression* child_;
+};
+
+class AbstractArrayMemberExpression : public AbstractAccessorExpression {
+ public:
+  AbstractArrayMemberExpression(const SourceLocation& pos, size_t level)
+   : AbstractAccessorExpression(pos),
+     level_(level)
+  {}
+
+  DECLARE_NODE(AbstractArrayMemberExpression);
+
+  size_t level() const {
+    return level_;
+  }
+
+ private:
+  size_t level_;
+};
+
+class AbstractFieldExpression : public AbstractAccessorExpression {
+ public:
+  AbstractFieldExpression(const SourceLocation& pos, NameToken field)
+   : AbstractAccessorExpression(pos),
+     field_(field)
+  {}
+
+  DECLARE_NODE(AbstractFieldExpression);
+
+  Atom* field() const {
+    return field_.atom;
+  }
+
+ private:
+  NameToken field_;
+};
+
 class SizeofExpression : public Expression
 {
  public:
-  SizeofExpression(const SourceLocation& pos, NameProxy* proxy, size_t level)
+  SizeofExpression(const SourceLocation& pos, NameProxy* proxy, AbstractAccessorExpression* expr)
    : Expression(pos),
      proxy_(proxy),
-     level_(level)
+     expr_(expr)
   {}
 
   DECLARE_NODE(SizeofExpression);
@@ -543,13 +599,13 @@ class SizeofExpression : public Expression
   NameProxy* proxy() const {
     return proxy_;
   }
-  size_t level() const {
-    return level_;
+  AbstractAccessorExpression* accessorExpression() const {
+    return expr_;
   }
 
  private:
   NameProxy* proxy_;
-  size_t level_;
+  AbstractAccessorExpression* expr_;
 };
 
 class ViewAsExpression : public Expression

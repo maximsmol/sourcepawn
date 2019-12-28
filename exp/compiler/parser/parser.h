@@ -98,6 +98,8 @@ class Parser
 
   Expression* parseCompoundLiteral();
   Expression* parseStructInitializer(const SourceLocation& pos);
+
+  AbstractAccessorExpression* parseAbstractAccessor();
   Expression* parseSizeof();
 
   Expression* primitive();

@@ -147,6 +147,7 @@ namespace sp {
   _(TILDE,              "~")                          \
   _(QMARK,              "?")                          \
   _(COLON,              ":")                          \
+  _(DBL_COLON,          "::")                         \
   _(DOT,                ".")                          \
   _(UNKNOWN,            "<unknown>")                  \
   _(NEWLINE,            "<newline>")                  \

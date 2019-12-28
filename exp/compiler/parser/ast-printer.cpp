@@ -1,18 +1,18 @@
 // vim: set ts=2 sw=2 tw=99 et:
-// 
+//
 // Copyright (C) 2012-2014 David Anderson
-// 
+//
 // This file is part of SourcePawn.
-// 
+//
 // SourcePawn is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free
 // Software Foundation, either version 3 of the License, or (at your option)
 // any later version.
-// 
+//
 // SourcePawn is distributed in the hope that it will be useful, but WITHOUT ANY
 // WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 // FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License along with
 // SourcePawn. If not, see http://www.gnu.org/licenses/.
 #include "ast.h"
@@ -293,11 +293,32 @@ class AstPrinter : public AstVisitor
       unindent();
     }
   }
+  void visitAbstractArrayMemberExpression(AbstractArrayMemberExpression* node) override {
+    prefix();
+    fprintf(fp_, "[ AbstractArrayMemberExpression (level %d)\n", (int)node->level());
+    if (node->child() != nullptr) {
+      indent();
+      node->child()->accept(this);
+      unindent();
+    }
+  }
+  void visitAbstractFieldExpression(AbstractFieldExpression* node) override {
+    prefix();
+    fprintf(fp_, "[ AbstractFieldExpression (%s)\n", node->field()->chars());
+    if (node->child() != nullptr) {
+      indent();
+      node->child()->accept(this);
+      unindent();
+    }
+  }
   void visitSizeofExpression(SizeofExpression* node) override {
     prefix();
-    fprintf(fp_, "[ SizeofExpression (level=%d)\n", (int)node->level());
+    fprintf(fp_, "[ SizeofExpression\n");
     indent();
     node->proxy()->accept(this);
+    if (node->accessorExpression() != nullptr) {
+      node->accessorExpression()->accept(this);
+    }
     unindent();
   }
   void visitWhileStatement(WhileStatement* node) override {

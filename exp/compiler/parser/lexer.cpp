@@ -1,18 +1,18 @@
 // vim: set ts=2 sw=2 tw=99 et:
-// 
+//
 // Copyright (C) 2012-2014 David Anderson
-// 
+//
 // This file is part of SourcePawn.
-// 
+//
 // SourcePawn is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free
 // Software Foundation, either version 3 of the License, or (at your option)
 // any later version.
-// 
+//
 // SourcePawn is distributed in the hope that it will be useful, but WITHOUT ANY
 // WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 // FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License along with
 // SourcePawn. If not, see http://www.gnu.org/licenses/.
 #include "lexer.h"
@@ -227,7 +227,7 @@ Lexer::numberLiteral(char first)
     }
     literal_.append(c);
   }
-  
+
   literal_.append('\0');
   return TOK_FLOAT_LITERAL;
 }
@@ -399,7 +399,7 @@ Lexer::readEscapeCode()
     {
       unsigned digits = 0;
       char r = 0;
-  
+
       c = readChar();
       while (IsHexDigit(c) && digits < 2) {
         if (IsDigit(c))
@@ -409,11 +409,11 @@ Lexer::readEscapeCode()
         digits++;
         c = readChar();
        }
-        
+
       // Swallow a trailing ';'
       if (c != ';')
         putBack(c);
-  
+
       return r;
     }
 
@@ -438,7 +438,7 @@ Lexer::readEscapeCode()
 
         return r;
       }
-      
+
       char print[2] = {c, '\0'};
       cc_.report(lastpos(), rmsg::unknown_escapecode)
         << print;
@@ -542,8 +542,13 @@ Lexer::handleIdentifier(Token* tok, char first)
   if (kind != TOK_NONE)
     return kind;
 
-  if (matchChar(':'))
+  if (matchChar(':')) {
+    if (peekChar(':')) {
+      putBack(':'); // this is a DBL_COLON
+      return TOK_NAME;
+    }
     return TOK_LABEL;
+  }
   return TOK_NAME;
 }
 
@@ -803,7 +808,7 @@ Lexer::handlePreprocessorDirective()
     {
       int val = 0;
       bool errored = pp_.eval(&val);
-      
+
       ifstack_.append(IfContext(begin, val ? IfContext::Active : IfContext::Ignoring));
       return !errored;
     }
@@ -1071,6 +1076,10 @@ Lexer::scan(Token* tok)
       kind = TOK_QMARK;
       break;
     case ':':
+      if (matchChar(':')) {
+        kind = TOK_DBL_COLON;
+        break;
+      }
       kind = TOK_COLON;
       break;
     case ',':

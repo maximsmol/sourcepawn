@@ -328,4 +328,19 @@ OffsetOfEnumStructField(EnumStructType* t, int n)
   return res;
 }
 
+Type* getEnumStructField(EnumStructType* t, Atom* field) {
+  ast::LayoutDecls* layout = t->decl()->body();
+
+  for (ast::LayoutDecl* ld : *layout) {
+    if (ld->isFieldDecl()) {
+      ast::FieldDecl* fd = ld->toFieldDecl();
+      if (field == fd->name()) {
+        return fd->te().resolved();
+      }
+    }
+  }
+
+  return nullptr;
+}
+
 } // namespace sp

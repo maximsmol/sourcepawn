@@ -26,7 +26,7 @@
 
 namespace sp {
 
-struct ReportingContext;
+class CompileContext;
 
 namespace ast {
 class RecordDecl;
@@ -843,12 +843,20 @@ AString BuildTypeName(Type* type, Atom* name = nullptr, TypeDiagFlags flags = Ty
 AString BuildTypeName(const ast::TypeSpecifier* spec, Atom* name, TypeDiagFlags flags = TypeDiagFlags::None);
 AString BuildTypeName(const ast::TypeExpr& te, Atom* name, TypeDiagFlags flags = TypeDiagFlags::None);
 
+namespace ast { // :TODO: ugly-ugly
+  class SizeofExpression;
+}
+Type* getEnumStructField(EnumStructType* t, Atom* field);
+
+// Compute the type that sizeof points to inside arrays/enum structs
+Type* ResolveSizeofLeafType(CompileContext& cc, ast::SizeofExpression* node);
+
 // Compute the size of a type. It must be an array type, and it must have
 // at least as many levels as specified, and the specified level must be
 // determinate (fixed).
 //
 // On failure, returns 0 and an error will have been reported.
-int32_t ComputeSizeOfType(ReportingContext& cc, Type* type, size_t level);
+int32_t ComputeSizeOfType(CompileContext& cc, ast::SizeofExpression* node);
 
 // Test whether two function types are equivalent.
 bool AreFunctionTypesEqual(FunctionType* a, FunctionType* b);
