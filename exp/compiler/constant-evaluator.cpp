@@ -8,7 +8,7 @@
  * the terms of the GNU General Public License as published by the Free
  * Software Foundation, either version 3 of the License, or (at your option)
  * any later version.
- * 
+ *
  * SourcePawn is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
@@ -143,17 +143,17 @@ ConstantEvaluator::binary(BinaryExpression* expr, BoxedValue& left, BoxedValue& 
     EVAL_ALU_OP(TOK_SLASH, Div);
     EVAL_ALU_OP(TOK_PERCENT, Mod);
     EVAL_BIT_OP(TOK_SHL, Shl);
-    EVAL_BIT_OP(TOK_SHR, Shr); 
-    EVAL_BIT_OP(TOK_USHR, Ushr); 
+    EVAL_BIT_OP(TOK_SHR, Shr);
+    EVAL_BIT_OP(TOK_USHR, Ushr);
     EVAL_BIT_OP(TOK_BITAND, And);
     EVAL_BIT_OP(TOK_BITOR, Or);
     EVAL_BIT_OP(TOK_BITXOR, Xor);
     EVAL_LOGIC_OP(TOK_AND, &&);
     EVAL_LOGIC_OP(TOK_OR, ||);
     EVAL_CMP_OP(TOK_LT, Lt);
-    EVAL_CMP_OP(TOK_LE, Le); 
-    EVAL_CMP_OP(TOK_GT, Gt); 
-    EVAL_CMP_OP(TOK_GE, Ge); 
+    EVAL_CMP_OP(TOK_LE, Le);
+    EVAL_CMP_OP(TOK_GT, Gt);
+    EVAL_CMP_OP(TOK_GE, Ge);
     EVAL_CMP_OP(TOK_EQUALS, Eq);
     EVAL_CMP_OP(TOK_NOTEQUALS, Ne);
 
