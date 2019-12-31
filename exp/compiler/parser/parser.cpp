@@ -1484,9 +1484,26 @@ Parser::switch_()
     if (need_colon && !expect(TOK_COLON))
       return nullptr;
 
-    Statement* stmt = statementOrBlock();
+
+    SourceLocation block_pos = scanner_.begin();
+
+    Scope* scope = nullptr;
+    StatementList* list = nullptr;
+    {
+      AutoEnterScope env(delegate_, Scope::Block, &scope);
+      SaveAndSet<bool> save(&allowDeclarations_, true);
+
+      list = new (pool_) StatementList();
+      while (!peek(TOK_CASE) && !peek(TOK_DEFAULT) && !peek(TOK_RBRACE)) {
+        if (Statement* stmt = statement())
+          list->append(stmt);
+      }
+    }
+
+    Statement* stmt = new (pool_) BlockStatement(block_pos, list, TOK_LBRACE, scope);
     if (!stmt)
       return nullptr;
+
 
     requireNewline();
 
