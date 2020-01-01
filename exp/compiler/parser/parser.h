@@ -104,6 +104,7 @@ class Parser
 
   Expression* primitive();
   Expression* dotfield(Expression* base);
+  Expression* fieldoffset(Expression* base);
   Expression* index(Expression* left);
   Expression* prefix();
   Expression* primary();

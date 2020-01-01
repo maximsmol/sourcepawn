@@ -822,31 +822,68 @@ SemanticAnalysis::visitViewAs(ast::ViewAsExpression* node)
 sema::Expr*
 SemanticAnalysis::visitField(ast::FieldExpression* node)
 {
-  sema::Expr* base = visitExpression(node->base());
-  if (!base)
-    return nullptr;
+  EnumStructType* estruct = nullptr;
 
-  if (base->type()->isStruct()) {
+  sema::Expr* base = nullptr;
+  Type* t = nullptr;
+  if (node->token() == TOK_DBL_COLON) {
+    ast::Expression* astexp = node->base();
+
+    if (astexp->isFieldExpression()) {
+      base = visitField(astexp->asFieldExpression());
+      t = base->type();
+    }
+    else if (astexp->isNameProxy()) {
+      Symbol* sym = astexp->asNameProxy()->sym();
+
+      if (!sym->isType()) {
+        assert(0);
+        // :TODO: error-reporting
+        // cc_.report(base->src()->loc(), rmsg::cannot_index_type) << base->type();
+        return nullptr;
+      }
+
+      t = sym->asType()->type();
+    }
+    else {
+      assert(0);
+      // :TODO: error-reporting
+    }
+  }
+  else if (node->token() == TOK_DOT) {
+    base = visitExpression(node->base());
+    if (!base)
+      return nullptr;
+
+    // :TODO: same as visitIndex
+
+    // Convert the base to an r-value.
+    LValueToRValueContext base_ec(base);
+    if (!coerce(base_ec))
+      return nullptr;
+    base = base_ec.result;
+
+    t = base->type();
+  }
+  else {
+    assert(0); // :TODO: proper error reporting
+    return nullptr;
+  }
+
+  if (t->isStruct()) {
     assert(0); // :TODO: structs are not supported
     return nullptr;
   }
 
-  if (!base->type()->isEnumStruct()) {
+  if (!t->isEnumStruct()) {
     assert(0); // :TODO: proper error reporting
-    cc_.report(base->src()->loc(), rmsg::cannot_index_type) <<
-      base->type();
+    // :TODO: this originally reported base->loc()
+    cc_.report(node->loc(), rmsg::cannot_index_type) << t;
     return nullptr;
   }
 
-  // :TODO: same as visitIndex
+  estruct = t->toEnumStruct();
 
-  // Convert the base to an r-value.
-  LValueToRValueContext base_ec(base);
-  if (!coerce(base_ec))
-    return nullptr;
-  base = base_ec.result;
-
-  EnumStructType* estruct = base->type()->toEnumStruct();
   LayoutDecls* layout = estruct->decl()->body();
 
   int32_t fieldN = 0;
@@ -870,10 +907,17 @@ SemanticAnalysis::visitField(ast::FieldExpression* node)
         //
         // :TODO: tests.
 
-        BoxedValue b(IntValue::FromValue(fieldN));
+        BoxedValue b(IntValue::FromValue(OffsetOfEnumStructField(estruct, fieldN) / 4));
         Type* i32type = types_->getPrimitive(PrimitiveType::Int32);
         sema::ConstValueExpr* constIndex =
           new (pool_) sema::ConstValueExpr(node, i32type, b);
+
+        if (node->token() == TOK_DBL_COLON)
+          return constIndex;
+
+        assert(base != nullptr);
+        // base can be nullptr if we request a non-type :: field offset
+        // this should be deteccted by one of the checks above actually
 
         return new (pool_) sema::IndexExpr(node, fd->te().resolved(), base, constIndex);
       }

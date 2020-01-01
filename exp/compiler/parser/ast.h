@@ -531,7 +531,7 @@ class ArrayLiteral : public Expression
   bool repeatLastElement_;
 };
 
-class AbstractAccessorExpression : public Expression {
+class AbstractAccessorExpression : public Expression { // :TODO: unify these with corresponding normal expressions
  public:
   AbstractAccessorExpression(const SourceLocation& pos)
    : Expression(pos),
@@ -742,14 +742,18 @@ class TernaryExpression : public Expression
 class FieldExpression : public Expression
 {
  public:
-  FieldExpression(const SourceLocation& pos, Expression* base, const NameToken& field)
+  FieldExpression(const SourceLocation& pos, Expression* base, const NameToken& field, TokenKind token)
    : Expression(pos),
      base_(base),
-     field_(field)
+     field_(field),
+     token_(token)
   {}
 
   DECLARE_NODE(FieldExpression);
 
+  TokenKind token() const {
+    return token_;
+  }
   Expression* base() const {
     return base_;
   }
@@ -760,6 +764,7 @@ class FieldExpression : public Expression
  private:
   Expression* base_;
   NameToken field_;
+  TokenKind token_;
 };
 
 class IndexExpression : public Expression

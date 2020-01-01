@@ -783,7 +783,21 @@ Parser::dotfield(Expression* base)
     return nullptr;
   NameToken name = *scanner_.current();
 
-  return new (pool_) FieldExpression(pos, base, name);
+  return new (pool_) FieldExpression(pos, base, name, TOK_DOT);
+}
+
+Expression*
+Parser::fieldoffset(Expression* base)
+{
+  expect(TOK_DBL_COLON);
+
+  SourceLocation pos = scanner_.begin();
+
+  if (!expect(TOK_NAME))
+    return nullptr;
+  NameToken name = *scanner_.current();
+
+  return new (pool_) FieldExpression(pos, base, name, TOK_DBL_COLON);
 }
 
 Expression*
@@ -824,6 +838,11 @@ Parser::primary()
 
       case TOK_DOT:
         if ((expr = dotfield(expr)) == nullptr)
+          return nullptr;
+        break;
+
+      case TOK_DBL_COLON:
+        if ((expr = fieldoffset(expr)) == nullptr)
           return nullptr;
         break;
 

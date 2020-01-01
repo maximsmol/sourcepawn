@@ -263,7 +263,9 @@ class AstPrinter : public AstVisitor
   }
   void visitFieldExpression(FieldExpression* node) override {
     prefix();
-    fprintf(fp_, "[ FieldExpression (%s)\n", node->field()->chars());
+    fprintf(fp_, "[ FieldExpression %s (%s)\n",
+      (node->token() == TOK_DOT) ? "." : "::",
+      node->field()->chars());
     indent();
     node->base()->accept(this);
     unindent();
