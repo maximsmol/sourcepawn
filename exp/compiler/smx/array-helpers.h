@@ -52,7 +52,7 @@ static inline int32_t CellLengthOfString(size_t str_length)
 {
   // :TODO: ensure this
   assert(str_length < INT_MAX);
-  return (int32_t)(ke::Align(str_length + 1, sizeof(cell_t)) / sizeof(cell_t));
+  return (int32_t)(ke::Align(str_length, sizeof(cell_t)) / sizeof(cell_t));
 }
 
 // Total number of bytes needed for each entry in the final fixed-length
